@@ -1,0 +1,77 @@
+@import "~slick-carousel/slick/slick.css";
+@import "~slick-carousel/slick/slick-theme.css";
+
+
+
+:root {
+  --brand-pink: #9b356d; /* main pink tone from Kindred nav */
+  --brand-light: #fffafc;
+  --text-dark: #4a0e33;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--brand-light);
+  margin: 0;
+  padding: 0;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: var(--text-dark);
+  font-weight: 500;
+}
+
+.nav-link:hover {
+  color: var(--brand-pink);
+}
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropbtn {
+  background: none;
+  border: none;
+  color: var(--text-dark);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: #fff;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  min-width: 160px;
+  z-index: 1;
+}
+
+.dropdown-content a {
+  color: var(--text-dark);
+  padding: 0.75rem 1rem;
+  text-decoration: none;
+  display: block;
+}
+
+.dropdown-content a:hover {
+  background-color: var(--brand-light);
+  color: var(--brand-pink);
+}
+
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+
+body {
+  background-color: #fffafc;
+}
+
+h1, h2, p {
+  font-family: 'Inter', sans-serif;
+}
+
+html, body {
+  scroll-behavior: smooth;
+}
