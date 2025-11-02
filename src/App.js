@@ -26,6 +26,7 @@ import Locations from "./pages/Locations";
 import Promos from "./pages/Promos";
 import Business from "./pages/Business";
 import Layout from "./components/Layout";
+import PatientLogin from "./pages/PatientLogin";
 
 // 🛑 Optional 404 Page
 function NotFound() {
@@ -82,8 +83,6 @@ function App() {
             </Layout>
           }
         />
-
-        {/* 🩷 Public Blog Pages */}
         <Route
           path="/blog"
           element={
@@ -100,8 +99,6 @@ function App() {
             </Layout>
           }
         />
-
-        {/* ✅ Services + Dynamic Categories */}
         <Route
           path="/services"
           element={
@@ -118,7 +115,6 @@ function App() {
             </Layout>
           }
         />
-
         <Route
           path="/locations"
           element={
@@ -143,6 +139,9 @@ function App() {
             </Layout>
           }
         />
+
+        {/* 🧍 Patient Login */}
+        <Route path="/patient-login" element={<PatientLogin />} />
 
         {/* 🔐 Admin Login */}
         <Route
@@ -172,7 +171,7 @@ function App() {
           <Route path="promos" element={<PromoManager />} />
           <Route path="locations" element={<LocationManager />} />
           <Route path="about" element={<AboutManager />} />
-          <Route path="blog" element={<BlogManager />} /> {/* ✅ fixed */}
+          <Route path="blog" element={<BlogManager />} />
           <Route
             path="users"
             element={
