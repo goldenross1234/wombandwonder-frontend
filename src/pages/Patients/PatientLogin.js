@@ -38,28 +38,27 @@ export default function PatientLogin() {
   // 🔹 Handle Google login
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      const decoded = jwtDecode(credentialResponse.credential);
-      console.log("✅ Google User:", decoded);
-
       const res = await axios.post(`${API_URL}/auth/google/login/`, {
         token: credentialResponse.credential,
       });
 
       if (res.data.success) {
-        localStorage.setItem("access", res.data.access || "");
-        localStorage.setItem("refresh", res.data.refresh || "");
+        localStorage.setItem("access", res.data.access);
+        localStorage.setItem("refresh", res.data.refresh);
+        localStorage.setItem("username", res.data.username);
         navigate("/patient-dashboard");
       } else {
-        setError("❌ Google login failed. Please try again.");
+        setError("Google login failed. Try again.");
       }
     } catch (err) {
       console.error("Google login error:", err);
-      setError("❌ Google login failed.");
+      setError("Google login failed.");
     }
   };
 
+
   return (
-    <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID_HERE">
+    <GoogleOAuthProvider clientId="570583645706-8sgtjpo7ub987eeu3r67chjckg9qgf6d.apps.googleusercontent.com">
       <div className="flex items-center justify-center min-h-screen bg-pink-50">
         <form
           onSubmit={handleSubmit}

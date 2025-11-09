@@ -13,7 +13,8 @@ import {
   LogOut,
   Home,
   Briefcase,
-  Folder, // 🩺 Replacing Stethoscope to avoid missing icon issues
+  Folder,
+  Monitor, // 🩺 Replacing Stethoscope to avoid missing icon issues
 } from "lucide-react";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
@@ -28,10 +29,16 @@ export default function AdminLayout() {
     window.location.href = "/";
   };
 
-  // ✅ Sidebar Navigation (Services included)
+  // ✅ Sidebar Navigation (with Queue Manager and Add Patient)
   const navItems = [
     { path: "/admin-panel/profile", label: "My Profile", icon: <User size={16} /> },
     { path: "/admin-panel", label: "Dashboard", icon: <LayoutDashboard size={16} /> },
+
+    // 🧑‍⚕️ Queue Management Section
+    { path: "/admin-panel/queue", label: "Queue Manager", icon: <Users size={16} /> },
+    //{ path: "/admin-panel/queue-add", label: "Add Patient", icon: <User size={16} /> },
+    { path: "/admin-panel/queue-display", label: "Queue Display", icon: <Monitor size={16} /> },
+
     { path: "/admin-panel/hero", label: "Hero Section", icon: <Heart size={16} /> },
     { path: "/admin-panel/banners", label: "Banners", icon: <Image size={16} /> },
     {

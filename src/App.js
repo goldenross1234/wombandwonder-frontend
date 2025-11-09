@@ -1,3 +1,4 @@
+// App.js
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -16,6 +17,12 @@ import ProfilePage from "./pages/AdminPanel/ProfilePage";
 import AdminLayout from "./pages/AdminPanel/AdminLayout";
 import CategoryManager from "./pages/AdminPanel/CategoryManager";
 
+// ✅ Unified Queue Page
+import QueueDashboard from "./pages/AdminPanel/QueueDashboard";
+
+// ✅ Queue Display
+import QueueDisplay from "./pages/Patients/QueueDisplay";
+
 // 🌐 Public Pages
 import Home from "./pages/Home";
 import About from "./pages/About";
@@ -26,36 +33,24 @@ import Locations from "./pages/Locations";
 import Promos from "./pages/Promos";
 import Business from "./pages/Business";
 import Layout from "./components/Layout";
-import PatientLogin from "./pages/PatientLogin";
 
-// 🛑 Optional 404 Page
+// Patients Login + Pages
+import PatientLogin from "./pages/Patients/PatientLogin";
+import PatientLayout from "./pages/Patients/PatientLayout";
+import PatientDashboard from "./pages/Patients/PatientDashboard";
+import PatientAppointments from "./pages/Patients/PatientAppointments";
+import PatientNotifications from "./pages/Patients/PatientNotifications";
+import PatientProfile from "./pages/Patients/PatientProfile";
+
+// Public Queue Join
+import QueueJoin from "./pages/Patients/QueueJoin";
+
 function NotFound() {
   return (
-    <div
-      style={{
-        minHeight: "70vh",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-        color: "#4a0e33",
-        textAlign: "center",
-      }}
-    >
+    <div style={{ minHeight: "70vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
       <h1 style={{ fontSize: "4rem", color: "var(--brand-pink)" }}>404</h1>
       <p style={{ fontSize: "1.2rem" }}>Oops! Page not found.</p>
-      <a
-        href="/"
-        style={{
-          marginTop: "1rem",
-          color: "white",
-          backgroundColor: "var(--brand-pink)",
-          padding: "0.6rem 1.5rem",
-          borderRadius: "25px",
-          textDecoration: "none",
-          fontWeight: "500",
-        }}
-      >
+      <a href="/" style={{ marginTop: "1rem", backgroundColor: "var(--brand-pink)", color: "white", padding: "0.6rem 1.5rem", borderRadius: "25px" }}>
         Back to Home
       </a>
     </div>
@@ -66,94 +61,31 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* 🌸 Public Website */}
-        <Route
-          path="/"
-          element={
-            <Layout>
-              <Home />
-            </Layout>
-          }
-        />
-        <Route
-          path="/about"
-          element={
-            <Layout>
-              <About />
-            </Layout>
-          }
-        />
-        <Route
-          path="/blog"
-          element={
-            <Layout>
-              <Blog />
-            </Layout>
-          }
-        />
-        <Route
-          path="/blog/:slug"
-          element={
-            <Layout>
-              <BlogDetail />
-            </Layout>
-          }
-        />
-        <Route
-          path="/services"
-          element={
-            <Layout>
-              <Services />
-            </Layout>
-          }
-        />
-        <Route
-          path="/services/:category"
-          element={
-            <Layout>
-              <Services />
-            </Layout>
-          }
-        />
-        <Route
-          path="/locations"
-          element={
-            <Layout>
-              <Locations />
-            </Layout>
-          }
-        />
-        <Route
-          path="/promos"
-          element={
-            <Layout>
-              <Promos />
-            </Layout>
-          }
-        />
-        <Route
-          path="/business"
-          element={
-            <Layout>
-              <Business />
-            </Layout>
-          }
-        />
+        {/* ✅ PUBLIC WEBSITE */}
+        <Route path="/" element={<Layout><Home /></Layout>} />
+        <Route path="/about" element={<Layout><About /></Layout>} />
+        <Route path="/blog" element={<Layout><Blog /></Layout>} />
+        <Route path="/blog/:slug" element={<Layout><BlogDetail /></Layout>} />
+        <Route path="/services" element={<Layout><Services /></Layout>} />
+        <Route path="/services/:category" element={<Layout><Services /></Layout>} />
+        <Route path="/locations" element={<Layout><Locations /></Layout>} />
+        <Route path="/promos" element={<Layout><Promos /></Layout>} />
+        <Route path="/business" element={<Layout><Business /></Layout>} />
 
-        {/* 🧍 Patient Login */}
+        {/* ✅ PATIENTS */}
         <Route path="/patient-login" element={<PatientLogin />} />
+        <Route path="/queue-join" element={<QueueJoin />} />
 
-        {/* 🔐 Admin Login */}
-        <Route
-          path="/admin-panel/login"
-          element={
-            <Layout>
-              <Login />
-            </Layout>
-          }
-        />
+        <Route path="/patients-corner" element={<PatientLayout />}>
+          <Route index element={<PatientDashboard />} />
+          <Route path="appointments" element={<PatientAppointments />} />
+          <Route path="notifications" element={<PatientNotifications />} />
+          <Route path="profile" element={<PatientProfile />} />
+        </Route>
 
-        {/* 🧭 Protected Admin Panel (Nested Routes) */}
+        {/* ✅ ADMIN PANEL */}
+        <Route path="/admin-panel/login" element={<Layout><Login /></Layout>} />
+
         <Route
           path="/admin-panel"
           element={
@@ -172,6 +104,19 @@ function App() {
           <Route path="locations" element={<LocationManager />} />
           <Route path="about" element={<AboutManager />} />
           <Route path="blog" element={<BlogManager />} />
+
+          {/* ✅ Unified Queue Dashboard */}
+          <Route path="queue" element={<QueueDashboard />} />
+
+          {/* ✅ Full-screen Display */}
+          <Route
+            path="queue-display"
+            element={
+              <ProtectedRoute>
+                <QueueDisplay />   {/* no AdminLayout → no sidebar */}
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="users"
             element={
@@ -182,18 +127,11 @@ function App() {
           />
         </Route>
 
-        {/* 🧭 Redirect /admin → /admin-panel */}
+        {/* ✅ Redirect Old Admin URL */}
         <Route path="/admin" element={<Navigate to="/admin-panel" replace />} />
 
-        {/* 🧩 404 Fallback */}
-        <Route
-          path="*"
-          element={
-            <Layout>
-              <NotFound />
-            </Layout>
-          }
-        />
+        {/* ✅ 404 */}
+        <Route path="*" element={<Layout><NotFound /></Layout>} />
       </Routes>
     </Router>
   );
