@@ -17,11 +17,10 @@ import ProfilePage from "./pages/AdminPanel/ProfilePage";
 import AdminLayout from "./pages/AdminPanel/AdminLayout";
 import CategoryManager from "./pages/AdminPanel/CategoryManager";
 
-// ✅ Unified Queue Page
+// ✅ Queue Pages
 import QueueDashboard from "./pages/AdminPanel/QueueDashboard";
-
-// ✅ Queue Display
 import QueueDisplay from "./pages/Patients/QueueDisplay";
+import QueueReports from "./pages/AdminPanel/QueueReports";
 
 // 🌐 Public Pages
 import Home from "./pages/Home";
@@ -34,7 +33,7 @@ import Promos from "./pages/Promos";
 import Business from "./pages/Business";
 import Layout from "./components/Layout";
 
-// Patients Login + Pages
+// Patients
 import PatientLogin from "./pages/Patients/PatientLogin";
 import PatientLayout from "./pages/Patients/PatientLayout";
 import PatientDashboard from "./pages/Patients/PatientDashboard";
@@ -61,6 +60,7 @@ function App() {
   return (
     <Router>
       <Routes>
+
         {/* ✅ PUBLIC WEBSITE */}
         <Route path="/" element={<Layout><Home /></Layout>} />
         <Route path="/about" element={<Layout><About /></Layout>} />
@@ -105,18 +105,11 @@ function App() {
           <Route path="about" element={<AboutManager />} />
           <Route path="blog" element={<BlogManager />} />
 
-          {/* ✅ Unified Queue Dashboard */}
+          {/* ✅ QUEUE PAGES */}
           <Route path="queue" element={<QueueDashboard />} />
+          <Route path="queue-reports" element={<QueueReports />} />
 
-          {/* ✅ Full-screen Display */}
-          <Route
-            path="queue-display"
-            element={
-              <ProtectedRoute>
-                <QueueDisplay />   {/* no AdminLayout → no sidebar */}
-              </ProtectedRoute>
-            }
-          />
+          {/* ✅ USER MANAGEMENT */}
           <Route
             path="users"
             element={
@@ -126,6 +119,16 @@ function App() {
             }
           />
         </Route>
+
+        {/* ✅ FULLSCREEN QUEUE DISPLAY (NO ADMIN LAYOUT) */}
+        <Route
+          path="/admin-panel/queue-display"
+          element={
+            <ProtectedRoute>
+              <QueueDisplay />
+            </ProtectedRoute>
+          }
+        />
 
         {/* ✅ Redirect Old Admin URL */}
         <Route path="/admin" element={<Navigate to="/admin-panel" replace />} />

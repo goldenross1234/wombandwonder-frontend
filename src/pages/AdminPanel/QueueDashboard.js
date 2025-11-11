@@ -15,62 +15,66 @@ export default function QueueDashboard() {
     priority: "regular",
   });
 
-  // ✅ Load queue data
+  // ✅ Reset on refresh (fix Start Day clickable again)
+  useEffect(() => {
+    setStarted(false);
+    setProgress(0);
+  }, []);
+  
+  // ✅ Load queue
   const fetchQueue = async () => {
     const res = await axios.get(`${API}/queue/`);
     setQueue(res.data);
   };
 
   useEffect(() => {
-    if (!started) return; // prevent loading before day starts
+    if (!started) return;
     fetchQueue();
     const interval = setInterval(fetchQueue, 3000);
     return () => clearInterval(interval);
   }, [started]);
 
-  // ✅ Handle form change
+  // ✅ Handle form changes
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
   // ✅ Add patient
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      await axios.post(`${API}/queue/`, form);
-
-      setForm({ name: "", age: "", notes: "", priority: "regular" });
-      fetchQueue();
-    } catch (err) {
-      console.error(err);
-      alert("Error adding patient!");
-    }
-  };
-
-  // ✅ Update status
-  const updateStatus = async (id, status) => {
-    await axios.patch(`${API}/queue/${id}/`, { status });
+    await axios.post(`${API}/queue/`, form);
+    setForm({ name: "", age: "", notes: "", priority: "regular" });
     fetchQueue();
   };
 
-  // ✅ DELETE queue entry
+  // ✅ Delete patient
   const deleteEntry = async (id) => {
     if (!window.confirm("Delete this queue entry?")) return;
     await axios.delete(`${API}/queue/${id}/`);
     fetchQueue();
   };
 
-  // ✅ Call next patient
-  const callNext = () => {
-    const waiting = queue.filter((q) => q.status === "waiting");
-    if (waiting.length === 0) return alert("No waiting patients!");
-
-    const next =
-      waiting.find((q) => q.priority === "priority") || waiting[0];
-
-    updateStatus(next.id, "serving");
+  // ✅ Serve patient → Move to Repository + Remove from Queue
+  const servePatient = async (id) => {
+    await axios.post(`${API}/queue/serve/${id}/`);
+    fetchQueue();
   };
 
-  // ✅ "Start The Day" — loading screen
+  // ✅ Update status (Done, No Show)
+  const updateStatus = async (id, status) => {
+    await axios.patch(`${API}/queue/${id}/`, { status });
+    fetchQueue();
+  };
+
+  // ✅ Delete ALL queue entries
+  const clearQueue = async () => {
+    if (!window.confirm("Delete ALL queue entries? This cannot be undone."))
+      return;
+
+    await axios.delete(`${API}/queue/clear/`);
+    fetchQueue();
+  };
+
+  // ✅ Start the day loading animation
   const startDay = () => {
     let p = 0;
     const timer = setInterval(() => {
@@ -83,7 +87,7 @@ export default function QueueDashboard() {
     }, 80);
   };
 
-  // ✅ BEFORE day starts → show loading UI
+  // ✅ BEFORE start
   if (!started) {
     return (
       <div
@@ -108,7 +112,6 @@ export default function QueueDashboard() {
               border: "none",
               borderRadius: "12px",
               cursor: "pointer",
-              boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
             }}
           >
             Start the Day
@@ -144,7 +147,7 @@ export default function QueueDashboard() {
     );
   }
 
-  // ✅ AFTER loading → show full dashboard
+  // ✅ AFTER loading → main UI
   return (
     <div style={{ display: "flex", gap: "30px", padding: "20px" }}>
       {/* ✅ ADD PATIENT FORM */}
@@ -154,6 +157,7 @@ export default function QueueDashboard() {
           padding: "20px",
           background: "#fff2f8",
           borderRadius: "10px",
+          boxShadow: "0 3px 8px rgba(0,0,0,0.1)",
         }}
       >
         <h2>➕ Add Patient</h2>
@@ -165,7 +169,7 @@ export default function QueueDashboard() {
             required
             value={form.name}
             onChange={handleChange}
-            style={{ width: "100%", marginBottom: 10, padding: 8 }}
+            style={{ width: "100%", marginBottom: 10 }}
           />
 
           <label>Age:</label>
@@ -174,7 +178,7 @@ export default function QueueDashboard() {
             name="age"
             value={form.age}
             onChange={handleChange}
-            style={{ width: "100%", marginBottom: 10, padding: 8 }}
+            style={{ width: "100%", marginBottom: 10 }}
           />
 
           <label>Notes:</label>
@@ -182,7 +186,7 @@ export default function QueueDashboard() {
             name="notes"
             value={form.notes}
             onChange={handleChange}
-            style={{ width: "100%", marginBottom: 10, padding: 8 }}
+            style={{ width: "100%", marginBottom: 10 }}
           />
 
           <label>Priority:</label>
@@ -190,7 +194,7 @@ export default function QueueDashboard() {
             name="priority"
             value={form.priority}
             onChange={handleChange}
-            style={{ width: "100%", marginBottom: 20, padding: 8 }}
+            style={{ width: "100%", marginBottom: 20 }}
           >
             <option value="regular">Regular</option>
             <option value="priority">Priority</option>
@@ -212,22 +216,24 @@ export default function QueueDashboard() {
         </form>
       </div>
 
-      {/* ✅ QUEUE MANAGER */}
+      {/* ✅ QUEUE TABLE */}
       <div style={{ flex: 1 }}>
         <h2>🩷 Queue Manager</h2>
 
+        {/* ✅ DELETE ALL button */}
         <button
-          onClick={callNext}
+          onClick={clearQueue}
           style={{
             padding: "8px 16px",
-            background: "#d81b60",
+            background: "#b71c1c",
             color: "white",
             border: "none",
-            borderRadius: 6,
-            marginBottom: 15,
+            borderRadius: "6px",
+            marginBottom: "15px",
+            cursor: "pointer",
           }}
         >
-          📣 Call Next
+          🗑️ Delete All Entries
         </button>
 
         <table width="100%" border="1">
@@ -242,22 +248,36 @@ export default function QueueDashboard() {
               <th>Actions</th>
             </tr>
           </thead>
+
           <tbody>
             {queue.map((q, i) => (
-              <tr key={q.id}>
+              <tr
+                key={q.id}
+                style={{
+                  background:
+                    q.priority === "priority" ? "#ffe8e8" : "white",
+                  animation:
+                    q.priority === "priority" ? "blink 1s infinite" : "none",
+                }}
+              >
                 <td>{i + 1}</td>
                 <td>{q.queue_number}</td>
                 <td>{q.name}</td>
                 <td>{q.age}</td>
                 <td>{q.priority}</td>
                 <td>{q.status}</td>
+
                 <td>
-                  <button onClick={() => updateStatus(q.id, "serving")}>
-                    Serve
+                  <button onClick={() => servePatient(q.id)} style={{ marginRight: 5 }}>
+                    Serve Regular
                   </button>
-                  <button onClick={() => updateStatus(q.id, "done")}>
-                    Done
+
+                  <button onClick={() => servePatient(q.id)} style={{ marginRight: 5 }}>
+                    Serve Priority
                   </button>
+
+                  <button onClick={() => updateStatus(q.id, "done")}>Done</button>
+
                   <button onClick={() => updateStatus(q.id, "no_show")}>
                     No Show
                   </button>
@@ -269,9 +289,8 @@ export default function QueueDashboard() {
                       background: "#b71c1c",
                       color: "white",
                       border: "none",
-                      borderRadius: "5px",
                       padding: "4px 8px",
-                      cursor: "pointer",
+                      borderRadius: "4px",
                     }}
                   >
                     Delete

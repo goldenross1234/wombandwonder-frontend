@@ -75,3 +75,15 @@ h1, h2, p {
 html, body {
   scroll-behavior: smooth;
 }
+
+@@keyframes popscale {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes blink {
+  0% { background-color: #ffe8e8; }
+  50% { background-color: #ffffff; }
+  100% { background-color: #ffe8e8; }
+}
+

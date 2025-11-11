@@ -5,9 +5,11 @@ const API = "http://127.0.0.1:8000/api";
 
 export default function QueueDisplay() {
   const [queue, setQueue] = useState([]);
-  const [current, setCurrent] = useState(null);
+  const [current, setCurrent] = useState("—");
+  const [popup, setPopup] = useState(null);
+  const [lastServed, setLastServed] = useState(null);
 
-  // ✅ Remove navbar, sidebar, footer → Full screen display
+  // ✅ Remove admin UI for fullscreen display
   useEffect(() => {
     const hideUI = () => {
       document.querySelector("nav")?.remove();
@@ -15,22 +17,37 @@ export default function QueueDisplay() {
       document.querySelector("footer")?.remove();
     };
     hideUI();
-    setTimeout(hideUI, 500); // retry in case React re-renders
+    setTimeout(hideUI, 500);
   }, []);
 
-  // ✅ Auto refresh every 3 seconds
+  // ✅ Auto-refresh every 3 seconds
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 3000);
+    loadQueue();
+    const interval = setInterval(loadQueue, 3000);
     return () => clearInterval(interval);
   }, []);
 
-  const load = async () => {
+  // ✅ Load queue and trigger popup when new SERVING entry appears
+  const loadQueue = async () => {
     const res = await axios.get(`${API}/queue/`);
     setQueue(res.data);
 
     const serving = res.data.find((q) => q.status === "serving");
-    setCurrent(serving ? serving.queue_number : null);
+
+    // ✅ If a NEW patient is served, trigger popup + sound
+    if (serving && serving.queue_number !== lastServed) {
+      setPopup(serving.queue_number);
+      setLastServed(serving.queue_number);
+
+      // ✅ Play sound
+      const audio = new Audio("/callnext.mp3");
+      audio.play();
+
+      // ✅ Close popup automatically
+      setTimeout(() => setPopup(null), 4000);
+    }
+
+    setCurrent(serving ? serving.queue_number : "—");
   };
 
   return (
@@ -42,6 +59,43 @@ export default function QueueDisplay() {
         minHeight: "100vh",
       }}
     >
+      {/* ✅ POPUP OVERLAY */}
+      {popup && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              padding: "40px 80px",
+              borderRadius: "20px",
+              textAlign: "center",
+              animation: "popscale 0.3s ease",
+            }}
+          >
+            <h1 style={{ fontSize: "70px", color: "#d81b60" }}>
+              NOW SERVING
+            </h1>
+
+            <h2 style={{ fontSize: "120px", marginTop: "20px" }}>
+              {popup}
+            </h2>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ MAIN SCREEN */}
       <h1 style={{ fontSize: "4rem", color: "#d81b60" }}>NOW SERVING</h1>
 
       <div
@@ -52,7 +106,7 @@ export default function QueueDisplay() {
           color: "#333",
         }}
       >
-        {current || "—"}
+        {current}
       </div>
 
       <h2
@@ -73,7 +127,9 @@ export default function QueueDisplay() {
             style={{
               fontSize: "2.5rem",
               marginTop: "15px",
-              color: q.priority === "priority" ? "#b71c1c" : "#444",
+              color: q.priority === "priority" ? "#b71c1c" : "#333",
+              animation:
+                q.priority === "priority" ? "blink 1s infinite" : "none",
             }}
           >
             {q.queue_number} — {q.priority.toUpperCase()}

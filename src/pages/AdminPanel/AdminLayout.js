@@ -38,6 +38,7 @@ export default function AdminLayout() {
     { path: "/admin-panel/queue", label: "Queue Manager", icon: <Users size={16} /> },
     //{ path: "/admin-panel/queue-add", label: "Add Patient", icon: <User size={16} /> },
     { path: "/admin-panel/queue-display", label: "Queue Display", icon: <Monitor size={16} /> },
+    { path: "/admin-panel/queue-reports", label: "Queue Reports", icon: <FileText size={16} /> },
 
     { path: "/admin-panel/hero", label: "Hero Section", icon: <Heart size={16} /> },
     { path: "/admin-panel/banners", label: "Banners", icon: <Image size={16} /> },
