@@ -15,16 +15,20 @@ export default function QueueDashboard() {
     priority: "regular",
   });
 
-  // ✅ Reset on refresh (fix Start Day clickable again)
+  // Reset on refresh
   useEffect(() => {
     setStarted(false);
     setProgress(0);
   }, []);
-  
-  // ✅ Load queue
+
+  // Load queue
   const fetchQueue = async () => {
-    const res = await axios.get(`${API}/queue/`);
-    setQueue(res.data);
+    try {
+      const res = await axios.get(`${API}/queue/`);
+      setQueue(res.data);
+    } catch (err) {
+      console.error("fetchQueue error:", err);
+    }
   };
 
   useEffect(() => {
@@ -34,49 +38,83 @@ export default function QueueDashboard() {
     return () => clearInterval(interval);
   }, [started]);
 
-  // ✅ Handle form changes
+  // Form change
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  // ✅ Add patient
+  // Add patient
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await axios.post(`${API}/queue/`, form);
-    setForm({ name: "", age: "", notes: "", priority: "regular" });
-    fetchQueue();
+    try {
+      await axios.post(`${API}/queue/`, form);
+      setForm({ name: "", age: "", notes: "", priority: "regular" });
+      fetchQueue();
+    } catch (err) {
+      console.error("add patient error:", err);
+      alert("Error adding patient!");
+    }
   };
 
-  // ✅ Delete patient
+  // Delete single
   const deleteEntry = async (id) => {
     if (!window.confirm("Delete this queue entry?")) return;
     await axios.delete(`${API}/queue/${id}/`);
     fetchQueue();
   };
 
-  // ✅ Serve patient → Move to Repository + Remove from Queue
+  // 1) Serve — only set status to "serving"
   const servePatient = async (id) => {
-    await axios.post(`${API}/queue/serve/${id}/`);
-    fetchQueue();
+    try {
+      await axios.patch(`${API}/queue/${id}/`, { status: "serving" });
+      fetchQueue();
+    } catch (err) {
+      console.error("servePatient error:", err);
+      alert("Error marking as serving");
+    }
   };
 
-  // ✅ Update status (Done, No Show)
+  // 2) Done — move to repository + remove
+  const markDone = async (id) => {
+    try {
+      await axios.post(`${API}/queue/serve/${id}/`);
+      fetchQueue();
+    } catch (err) {
+      console.error("markDone error:", err);
+      if (err.response && err.response.data) {
+        alert(err.response.data.error || "Error marking done");
+      } else {
+        alert("Error marking done");
+      }
+    }
+  };
+
+  // Update status e.g., no_show
   const updateStatus = async (id, status) => {
-    await axios.patch(`${API}/queue/${id}/`, { status });
-    fetchQueue();
+    try {
+      await axios.patch(`${API}/queue/${id}/`, { status });
+      fetchQueue();
+    } catch (err) {
+      console.error("updateStatus error:", err);
+      alert("Error updating status");
+    }
   };
 
-  // ✅ Delete ALL queue entries
+  // Clear all entries
   const clearQueue = async () => {
-    if (!window.confirm("Delete ALL queue entries? This cannot be undone."))
-      return;
-
-    await axios.delete(`${API}/queue/clear/`);
-    fetchQueue();
+    if (!window.confirm("Delete ALL queue entries? This cannot be undone.")) return;
+    try {
+      await axios.delete(`${API}/queue/clear/`);
+      fetchQueue();
+    } catch (err) {
+      console.error("clearQueue error:", err);
+      alert("Error clearing queue");
+    }
   };
 
-  // ✅ Start the day loading animation
+  // Start day loader
   const startDay = () => {
     let p = 0;
+    setProgress(0);
     const timer = setInterval(() => {
       p += 4;
       setProgress(p);
@@ -87,7 +125,7 @@ export default function QueueDashboard() {
     }, 80);
   };
 
-  // ✅ BEFORE start
+  // BEFORE start
   if (!started) {
     return (
       <div
@@ -147,10 +185,10 @@ export default function QueueDashboard() {
     );
   }
 
-  // ✅ AFTER loading → main UI
+  // AFTER start
   return (
     <div style={{ display: "flex", gap: "30px", padding: "20px" }}>
-      {/* ✅ ADD PATIENT FORM */}
+      {/* Add patient form */}
       <div
         style={{
           width: "350px",
@@ -216,11 +254,10 @@ export default function QueueDashboard() {
         </form>
       </div>
 
-      {/* ✅ QUEUE TABLE */}
+      {/* Queue table */}
       <div style={{ flex: 1 }}>
         <h2>🩷 Queue Manager</h2>
 
-        {/* ✅ DELETE ALL button */}
         <button
           onClick={clearQueue}
           style={{
@@ -254,31 +291,31 @@ export default function QueueDashboard() {
               <tr
                 key={q.id}
                 style={{
-                  background:
-                    q.priority === "priority" ? "#ffe8e8" : "white",
-                  animation:
-                    q.priority === "priority" ? "blink 1s infinite" : "none",
+                  background: q.priority === "priority" ? "#ffe8e8" : "white",
+                  animation: q.priority === "priority" ? "blink 1s infinite" : "none",
                 }}
               >
                 <td>{i + 1}</td>
                 <td>{q.queue_number}</td>
                 <td>{q.name}</td>
-                <td>{q.age}</td>
-                <td>{q.priority}</td>
+                <td>{q.age || "—"}</td>
+                <td style={{ textTransform: "capitalize" }}>{q.priority}</td>
                 <td>{q.status}</td>
 
                 <td>
-                  <button onClick={() => servePatient(q.id)} style={{ marginRight: 5 }}>
+                  <button onClick={() => servePatient(q.id)} style={{ marginRight: 6 }}>
                     Serve Regular
                   </button>
 
-                  <button onClick={() => servePatient(q.id)} style={{ marginRight: 5 }}>
+                  <button onClick={() => servePatient(q.id)} style={{ marginRight: 6 }}>
                     Serve Priority
                   </button>
 
-                  <button onClick={() => updateStatus(q.id, "done")}>Done</button>
+                  <button onClick={() => markDone(q.id)} style={{ marginRight: 6 }}>
+                    Done
+                  </button>
 
-                  <button onClick={() => updateStatus(q.id, "no_show")}>
+                  <button onClick={() => updateStatus(q.id, "no_show")} style={{ marginRight: 6 }}>
                     No Show
                   </button>
 
@@ -298,6 +335,13 @@ export default function QueueDashboard() {
                 </td>
               </tr>
             ))}
+            {queue.length === 0 && (
+              <tr>
+                <td colSpan={7} style={{ textAlign: "center", padding: 20 }}>
+                  No queue entries.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

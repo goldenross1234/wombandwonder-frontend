@@ -9,7 +9,7 @@ export default function QueueDisplay() {
   const [popup, setPopup] = useState(null);
   const [lastServed, setLastServed] = useState(null);
 
-  // ✅ Remove admin UI for fullscreen display
+  // remove admin UI if present
   useEffect(() => {
     const hideUI = () => {
       document.querySelector("nav")?.remove();
@@ -20,34 +20,39 @@ export default function QueueDisplay() {
     setTimeout(hideUI, 500);
   }, []);
 
-  // ✅ Auto-refresh every 3 seconds
   useEffect(() => {
     loadQueue();
     const interval = setInterval(loadQueue, 3000);
     return () => clearInterval(interval);
   }, []);
 
-  // ✅ Load queue and trigger popup when new SERVING entry appears
   const loadQueue = async () => {
-    const res = await axios.get(`${API}/queue/`);
-    setQueue(res.data);
+    try {
+      const res = await axios.get(`${API}/queue/`);
+      setQueue(res.data);
 
-    const serving = res.data.find((q) => q.status === "serving");
+      const serving = res.data.find((q) => q.status === "serving");
 
-    // ✅ If a NEW patient is served, trigger popup + sound
-    if (serving && serving.queue_number !== lastServed) {
-      setPopup(serving.queue_number);
-      setLastServed(serving.queue_number);
+      // show popup only when a new serving number appears
+      if (serving && serving.queue_number !== lastServed) {
+        setPopup(serving.queue_number);
+        setLastServed(serving.queue_number);
 
-      // ✅ Play sound
-      const audio = new Audio("/callnext.mp3");
-      audio.play();
+        // play sound (file should be present at /public/callnext.mp3)
+        const audio = new Audio("/callnext.mp3");
+        audio.play().catch((e) => {
+          // ignore autoplay errors in some browsers
+          console.debug("audio play failed:", e);
+        });
 
-      // ✅ Close popup automatically
-      setTimeout(() => setPopup(null), 4000);
+        // auto-hide popup after 4 seconds
+        setTimeout(() => setPopup(null), 4000);
+      }
+
+      setCurrent(serving ? serving.queue_number : "—");
+    } catch (err) {
+      console.error("loadQueue error:", err);
     }
-
-    setCurrent(serving ? serving.queue_number : "—");
   };
 
   return (
@@ -59,7 +64,6 @@ export default function QueueDisplay() {
         minHeight: "100vh",
       }}
     >
-      {/* ✅ POPUP OVERLAY */}
       {popup && (
         <div
           style={{
@@ -84,18 +88,12 @@ export default function QueueDisplay() {
               animation: "popscale 0.3s ease",
             }}
           >
-            <h1 style={{ fontSize: "70px", color: "#d81b60" }}>
-              NOW SERVING
-            </h1>
-
-            <h2 style={{ fontSize: "120px", marginTop: "20px" }}>
-              {popup}
-            </h2>
+            <h1 style={{ fontSize: "70px", color: "#d81b60" }}>NOW SERVING</h1>
+            <h2 style={{ fontSize: "120px", marginTop: "20px" }}>{popup}</h2>
           </div>
         </div>
       )}
 
-      {/* ✅ MAIN SCREEN */}
       <h1 style={{ fontSize: "4rem", color: "#d81b60" }}>NOW SERVING</h1>
 
       <div
@@ -128,8 +126,7 @@ export default function QueueDisplay() {
               fontSize: "2.5rem",
               marginTop: "15px",
               color: q.priority === "priority" ? "#b71c1c" : "#333",
-              animation:
-                q.priority === "priority" ? "blink 1s infinite" : "none",
+              animation: q.priority === "priority" ? "blink 1s infinite" : "none",
             }}
           >
             {q.queue_number} — {q.priority.toUpperCase()}
