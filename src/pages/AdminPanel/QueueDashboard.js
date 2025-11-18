@@ -7,12 +7,28 @@ export default function QueueDashboard() {
   const [queue, setQueue] = useState([]);
   const [started, setStarted] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [services, setServices] = useState([]);
+
+const loadServices = async () => {
+  try {
+    const res = await axios.get(`${API}/services/`);
+    setServices(res.data);
+  } catch (err) {
+    console.error("loadServices error:", err);
+  }
+};
+
+useEffect(() => {
+  loadServices();
+}, []);
+
 
   const [form, setForm] = useState({
     name: "",
     age: "",
     notes: "",
     priority: "regular",
+    selected_service: "",
   });
 
   // Reset on refresh
@@ -199,6 +215,30 @@ export default function QueueDashboard() {
         }}
       >
         <h2>➕ Add Patient</h2>
+
+        <label>Service (optional):</label>
+        <select
+          name="selected_service"
+          value={form.selected_service}
+          onChange={handleChange}
+          style={{ width: "100%", marginBottom: 20 }}
+        >
+          <option value="">-- Select Service --</option>
+
+          {/* Group services by category */}
+          {[...new Set(services.map((s) => s.category?.name))].map((cat) => (
+            <optgroup key={cat} label={cat || "Other"}>
+              {services
+                .filter((s) => s.category?.name === cat)
+                .map((svc) => (
+                  <option key={svc.id} value={svc.name}>
+                    {svc.name}
+                  </option>
+                ))}
+            </optgroup>
+          ))}
+        </select>
+
 
         <form onSubmit={handleSubmit}>
           <label>Name:</label>

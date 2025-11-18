@@ -9,7 +9,7 @@ export default function QueueDisplay() {
   const [popup, setPopup] = useState(null);
   const [lastServed, setLastServed] = useState(null);
 
-  // remove admin UI if present
+  // --- REMOVE ADMIN UI ---
   useEffect(() => {
     const hideUI = () => {
       document.querySelector("nav")?.remove();
@@ -20,6 +20,18 @@ export default function QueueDisplay() {
     setTimeout(hideUI, 500);
   }, []);
 
+  // --- AUDIO UNLOCK ---
+  useEffect(() => {
+    const unlockAudio = () => {
+      const audio = new Audio("/callnext.mp3");
+      audio.play().catch(() => {});
+      window.removeEventListener("click", unlockAudio);
+    };
+
+    window.addEventListener("click", unlockAudio);
+  }, []);
+
+  // --- POLLING ---
   useEffect(() => {
     loadQueue();
     const interval = setInterval(loadQueue, 3000);
@@ -33,25 +45,21 @@ export default function QueueDisplay() {
 
       const serving = res.data.find((q) => q.status === "serving");
 
-      // show popup only when a new serving number appears
       if (serving && serving.queue_number !== lastServed) {
         setPopup(serving.queue_number);
         setLastServed(serving.queue_number);
 
-        // play sound (file should be present at /public/callnext.mp3)
+        // --- PLAY SOUND ---
         const audio = new Audio("/callnext.mp3");
-        audio.play().catch((e) => {
-          // ignore autoplay errors in some browsers
-          console.debug("audio play failed:", e);
-        });
+        audio.play().catch((e) => console.debug("Audio blocked:", e));
 
-        // auto-hide popup after 4 seconds
+        // Hide popup
         setTimeout(() => setPopup(null), 4000);
       }
 
       setCurrent(serving ? serving.queue_number : "—");
     } catch (err) {
-      console.error("loadQueue error:", err);
+      console.error("QueueDisplay loadQueue error:", err);
     }
   };
 
@@ -64,6 +72,7 @@ export default function QueueDisplay() {
         minHeight: "100vh",
       }}
     >
+      {/* POPUP */}
       {popup && (
         <div
           style={{
@@ -94,6 +103,7 @@ export default function QueueDisplay() {
         </div>
       )}
 
+      {/* CURRENT NUMBER */}
       <h1 style={{ fontSize: "4rem", color: "#d81b60" }}>NOW SERVING</h1>
 
       <div
@@ -107,6 +117,7 @@ export default function QueueDisplay() {
         {current}
       </div>
 
+      {/* WAITING LIST */}
       <h2
         style={{
           marginTop: "60px",
@@ -126,10 +137,12 @@ export default function QueueDisplay() {
               fontSize: "2.5rem",
               marginTop: "15px",
               color: q.priority === "priority" ? "#b71c1c" : "#333",
-              animation: q.priority === "priority" ? "blink 1s infinite" : "none",
+              animation:
+                q.priority === "priority" ? "blink 1s infinite" : "none",
             }}
           >
-            {q.queue_number} — {q.priority.toUpperCase()}
+            {q.queue_number} —{" "}
+            {q.priority.toUpperCase()}
           </div>
         ))}
     </div>
