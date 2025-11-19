@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useCallback } from "react";
+import axios from "../../api/axiosConfig";          // ✔ global axios with runtime backend
+import { loadConfig } from "../../config/runtimeConfig"; // ✔ dynamic backend
 import { PlusCircle, Edit, Trash2, Save, X } from "lucide-react";
-import "./ServiceManager.css"; // 🌸 Import external CSS
-
-const API_URL = "http://127.0.0.1:8000/api";
+import "./ServiceManager.css";
 
 export default function ServiceManager() {
   const [services, setServices] = useState([]);
@@ -11,6 +10,7 @@ export default function ServiceManager() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingService, setEditingService] = useState(null);
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -18,20 +18,19 @@ export default function ServiceManager() {
     category_id: "",
     active: true,
   });
+
   const [errorMessage, setErrorMessage] = useState("");
 
-  const token = localStorage.getItem("access");
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  // ---------------------------------------------------------
+  // LOAD SERVICES & CATEGORIES (wrapped in useCallback)
+  // ---------------------------------------------------------
+  const fetchData = useCallback(async () => {
     try {
       const [serviceRes, categoryRes] = await Promise.all([
-        axios.get(`${API_URL}/services/`),
-        axios.get(`${API_URL}/service-categories/`),
+        axios.get("services/"),
+        axios.get("service-categories/"),
       ]);
+
       setServices(serviceRes.data);
       setCategories(categoryRes.data);
     } catch (err) {
@@ -39,8 +38,22 @@ export default function ServiceManager() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
+  // ---------------------------------------------------------
+  // INIT
+  // ---------------------------------------------------------
+  useEffect(() => {
+    async function init() {
+      await loadConfig(); // ensures axiosConfig has correct baseURL
+      fetchData();
+    }
+    init();
+  }, [fetchData]);
+
+  // ---------------------------------------------------------
+  // SAVE SERVICE
+  // ---------------------------------------------------------
   const handleSave = async () => {
     setErrorMessage("");
 
@@ -50,11 +63,10 @@ export default function ServiceManager() {
     }
 
     try {
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
       if (editingService) {
-        await axios.put(`${API_URL}/services/${editingService.id}/`, formData, { headers });
+        await axios.put(`services/${editingService.id}/`, formData);
       } else {
-        await axios.post(`${API_URL}/services/`, formData, { headers });
+        await axios.post(`services/`, formData);
       }
 
       setShowModal(false);
@@ -66,17 +78,22 @@ export default function ServiceManager() {
     }
   };
 
+  // ---------------------------------------------------------
+  // DELETE
+  // ---------------------------------------------------------
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this service?")) return;
     try {
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      await axios.delete(`${API_URL}/services/${id}/`, { headers });
+      await axios.delete(`services/${id}/`);
       fetchData();
     } catch (err) {
       console.error("Error deleting service:", err);
     }
   };
 
+  // ---------------------------------------------------------
+  // OPEN MODAL
+  // ---------------------------------------------------------
   const openModal = (svc = null) => {
     if (svc) {
       setEditingService(svc);
@@ -100,6 +117,9 @@ export default function ServiceManager() {
     setShowModal(true);
   };
 
+  // ---------------------------------------------------------
+  // RENDER
+  // ---------------------------------------------------------
   if (loading) return <p>Loading...</p>;
 
   return (
@@ -117,10 +137,12 @@ export default function ServiceManager() {
             <p className="category-tag">{svc.category_name || "No category"}</p>
             <p>{svc.description}</p>
             <p className="price">₱{parseFloat(svc.price).toLocaleString()}</p>
+
             <div className="btn-group">
               <button onClick={() => openModal(svc)} className="edit-btn">
                 <Edit size={16} /> Edit
               </button>
+
               <button onClick={() => handleDelete(svc.id)} className="delete-btn">
                 <Trash2 size={16} /> Delete
               </button>

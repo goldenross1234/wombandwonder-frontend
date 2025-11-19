@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
-
-const API = "http://127.0.0.1:8000/api";
+import axios from "../../api/axiosConfig";            // ✔ global axios
+import { loadConfig } from "../../config/runtimeConfig"; // ✔ dynamic backend
 
 export default function QueueDisplay() {
   const [queue, setQueue] = useState([]);
@@ -9,7 +8,9 @@ export default function QueueDisplay() {
   const [popup, setPopup] = useState(null);
   const [lastServed, setLastServed] = useState(null);
 
-  // --- REMOVE ADMIN UI ---
+  // ============================================================
+  // HIDE ADMIN UI ELEMENTS
+  // ============================================================
   useEffect(() => {
     const hideUI = () => {
       document.querySelector("nav")?.remove();
@@ -20,40 +21,52 @@ export default function QueueDisplay() {
     setTimeout(hideUI, 500);
   }, []);
 
-  // --- AUDIO UNLOCK ---
+  // ============================================================
+  // UNLOCK AUDIO ON FIRST USER CLICK
+  // ============================================================
   useEffect(() => {
     const unlockAudio = () => {
       const audio = new Audio("/callnext.mp3");
       audio.play().catch(() => {});
       window.removeEventListener("click", unlockAudio);
     };
-
     window.addEventListener("click", unlockAudio);
   }, []);
 
-  // --- POLLING ---
+  // ============================================================
+  // INITIAL LOAD (CONFIG + QUEUE POLLING)
+  // ============================================================
   useEffect(() => {
-    loadQueue();
+    async function init() {
+      await loadConfig(); // ensures axiosConfig loads backend_url
+      loadQueue();
+    }
+    init();
+
     const interval = setInterval(loadQueue, 3000);
     return () => clearInterval(interval);
   }, []);
 
+  // ============================================================
+  // LOAD QUEUE DATA
+  // ============================================================
   const loadQueue = async () => {
     try {
-      const res = await axios.get(`${API}/queue/`);
+      const res = await axios.get("queue/");
       setQueue(res.data);
 
       const serving = res.data.find((q) => q.status === "serving");
 
+      // ---- Trigger popup if a new queue number is called ----
       if (serving && serving.queue_number !== lastServed) {
         setPopup(serving.queue_number);
         setLastServed(serving.queue_number);
 
-        // --- PLAY SOUND ---
+        // Play the "next" sound
         const audio = new Audio("/callnext.mp3");
-        audio.play().catch((e) => console.debug("Audio blocked:", e));
+        audio.play().catch(() => {});
 
-        // Hide popup
+        // Hide popup after 4 sec
         setTimeout(() => setPopup(null), 4000);
       }
 
@@ -63,6 +76,9 @@ export default function QueueDisplay() {
     }
   };
 
+  // ============================================================
+  // RENDER
+  // ============================================================
   return (
     <div
       style={{
@@ -72,15 +88,12 @@ export default function QueueDisplay() {
         minHeight: "100vh",
       }}
     >
-      {/* POPUP */}
+      {/* POPUP OVERLAY */}
       {popup && (
         <div
           style={{
             position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
+            inset: 0,
             background: "rgba(0,0,0,0.6)",
             display: "flex",
             justifyContent: "center",
@@ -105,7 +118,6 @@ export default function QueueDisplay() {
 
       {/* CURRENT NUMBER */}
       <h1 style={{ fontSize: "4rem", color: "#d81b60" }}>NOW SERVING</h1>
-
       <div
         style={{
           fontSize: "10rem",
@@ -141,8 +153,7 @@ export default function QueueDisplay() {
                 q.priority === "priority" ? "blink 1s infinite" : "none",
             }}
           >
-            {q.queue_number} —{" "}
-            {q.priority.toUpperCase()}
+            {q.queue_number} — {q.priority.toUpperCase()}
           </div>
         ))}
     </div>

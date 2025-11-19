@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FaShoppingCart, FaUser } from "react-icons/fa";
-import axios from "axios";
+import axios from "../api/axiosConfig";              // ✅ use your global axios
+import { loadConfig } from "../config/runtimeConfig"; // ✅ dynamic backend
 import LoginModal from "./LoginModal";
 
 const Navbar = () => {
@@ -15,11 +16,11 @@ const Navbar = () => {
   const [role, setRole] = useState(localStorage.getItem("role") || "");
   const [categories, setCategories] = useState([]);
 
-  // 🩷 Patient info (Google or email login)
+  // Patient info
   const [patientToken, setPatientToken] = useState(localStorage.getItem("patient_access") || null);
   const [patientName, setPatientName] = useState(localStorage.getItem("patient_name") || "");
 
-  // 🔁 Track login state changes across tabs
+  // Sync login state across tabs
   useEffect(() => {
     const handleStorageChange = () => {
       setIsLoggedIn(!!localStorage.getItem("access"));
@@ -32,15 +33,21 @@ const Navbar = () => {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // 🩷 Fetch service categories
+  // 🌸 Fetch service categories with dynamic backend
   useEffect(() => {
-    axios
-      .get("http://127.0.0.1:8000/api/service-categories/")
-      .then((res) => setCategories(res.data))
-      .catch((err) => console.error("Error fetching categories:", err));
+    async function fetchCategories() {
+      try {
+        await loadConfig();              // ensures axiosConfig already has baseURL
+        const res = await axios.get("service-categories/");  // ✅ NO HARDCODED URL
+        setCategories(res.data);
+      } catch (err) {
+        console.error("Error fetching categories:", err);
+      }
+    }
+    fetchCategories();
   }, []);
 
-  // 🚪 Logout handlers
+  // Logout
   const handleLogout = () => {
     localStorage.clear();
     setIsLoggedIn(false);
@@ -54,7 +61,7 @@ const Navbar = () => {
     navigate("/patient-login");
   };
 
-  // 🧠 Close dropdown when clicking outside
+  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -65,17 +72,14 @@ const Navbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ✅ Admin login success callback
+  // Admin login success
   const handleLoginSuccess = (userRole) => {
     setIsLoggedIn(true);
     setShowLoginModal(false);
     setUsername(localStorage.getItem("username"));
     setRole(userRole);
-    if (["superuser", "owner", "supervisor"].includes(userRole)) {
-      navigate("/admin-panel");
-    } else {
-      navigate("/");
-    }
+    if (["superuser", "owner", "supervisor"].includes(userRole)) navigate("/admin-panel");
+    else navigate("/");
   };
 
   return (
@@ -94,7 +98,7 @@ const Navbar = () => {
           zIndex: 1000,
         }}
       >
-        {/* 🌸 Logo */}
+        {/* Logo */}
         <Link
           to="/"
           style={{
@@ -107,12 +111,12 @@ const Navbar = () => {
           Womb<span style={{ color: "var(--text-dark)" }}>&</span>Wonder
         </Link>
 
-        {/* 📜 Nav Links */}
+        {/* Links */}
         <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
           <Link to="/about" className="nav-link">About Us</Link>
           <Link to="/blog" className="nav-link">Blog</Link>
 
-          {/* 🩷 Services Dropdown */}
+          {/* Services Dropdown */}
           <div className="dropdown">
             <button className="dropbtn">Services ▾</button>
             <div className="dropdown-content">
@@ -135,7 +139,7 @@ const Navbar = () => {
           <Link to="/locations" className="nav-link">Locations</Link>
           <Link to="/promos" className="nav-link">Promos</Link>
 
-          {/* 💗 Patients Corner */}
+          {/* Patient */}
           {!patientToken ? (
             <Link
               to="/patient-login"
@@ -187,7 +191,7 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* 🛍️ Right: Search + Admin/User Icon */}
+        {/* Search + Admin */}
         <div
           style={{
             display: "flex",
@@ -209,7 +213,7 @@ const Navbar = () => {
           />
           <FaShoppingCart size={18} color="#4a0e33" />
 
-          {/* 👤 Admin User */}
+          {/* Admin Dropdown */}
           <div ref={dropdownRef} style={{ position: "relative" }}>
             <FaUser
               size={18}
@@ -222,7 +226,6 @@ const Navbar = () => {
               }}
             />
 
-            {/* 🔽 Admin Dropdown */}
             {isLoggedIn && showDropdown && (
               <div
                 style={{
@@ -303,7 +306,7 @@ const Navbar = () => {
         </div>
       </nav>
 
-      {/* 🩷 Admin Login Modal */}
+      {/* Login Modal */}
       <LoginModal
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}

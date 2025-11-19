@@ -1,42 +1,52 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import axios from "axios";
+import axios from "../api/axiosConfig";            // ✔ global axios
+import { loadConfig } from "../config/runtimeConfig"; // ✔ dynamic backend
 
 export default function Services() {
-  const { category } = useParams(); // 👈 dynamic category slug (e.g. /services/consultations)
+  const { category } = useParams(); // e.g. /services/consultations
   const [services, setServices] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ===========================================================
+  // Load Config + Services + Categories
+  // ===========================================================
   useEffect(() => {
-    const fetchData = async () => {
+    async function fetchData() {
       try {
+        await loadConfig(); // We load it only to ensure axios baseURL is correct
+
         const [servicesRes, categoriesRes] = await Promise.all([
-          axios.get("http://127.0.0.1:8000/api/services/"),
-          axios.get("http://127.0.0.1:8000/api/service-categories/"),
+          axios.get("services/"),
+          axios.get("service-categories/"),
         ]);
+
         setServices(servicesRes.data);
         setCategories(categoriesRes.data);
       } catch (error) {
-        console.error("Error fetching services or categories:", error);
+        console.error("Error loading services:", error);
       } finally {
         setLoading(false);
       }
-    };
+    }
+
     fetchData();
   }, []);
 
-  // 🧠 Category-based filter
+  // ===========================================================
+  // Category filter
+  // ===========================================================
   const filteredServices = category
     ? services.filter((s) => {
         const catName = s.category_name || s.category?.name || "";
         return (
-          catName.toLowerCase().replace(/\s+/g, "-") === category.toLowerCase()
+          catName.toLowerCase().replace(/\s+/g, "-") ===
+          category.toLowerCase()
         );
       })
     : services;
 
-  // 🩷 Find category display name for title
   const activeCategory = categories.find(
     (c) => c.name.toLowerCase().replace(/\s+/g, "-") === category
   );
@@ -58,21 +68,26 @@ export default function Services() {
         textAlign: "center",
       }}
     >
-      {/* 🩷 Page Title */}
-      <h1 style={{ color: "var(--brand-pink)", fontSize: "2rem", marginBottom: "1rem" }}>
+      {/* ===================== PAGE TITLE ====================== */}
+      <h1
+        style={{
+          color: "var(--brand-pink)",
+          fontSize: "2rem",
+          marginBottom: "1rem",
+        }}
+      >
         {category
           ? `${activeCategory?.name || category.replace("-", " ")} Services`
           : "Our Services"}
       </h1>
 
-      {/* 🩶 Subtitle */}
       <p style={{ color: "#666", marginBottom: "2rem" }}>
         {category
           ? `Explore services under ${activeCategory?.name || category}.`
           : "Discover our full range of healthcare and wellness services."}
       </p>
 
-      {/* 🧭 Category Buttons */}
+      {/* ===================== CATEGORY BUTTONS ====================== */}
       <div
         style={{
           display: "flex",
@@ -97,32 +112,30 @@ export default function Services() {
           All
         </Link>
 
-        {categories.map((cat) => (
-          <Link
-            key={cat.id}
-            to={`/services/${cat.name.toLowerCase().replace(/\s+/g, "-")}`}
-            className="category-btn"
-            style={{
-              backgroundColor:
-                category === cat.name.toLowerCase().replace(/\s+/g, "-")
-                  ? "var(--brand-pink)"
-                  : "#eee",
-              color:
-                category === cat.name.toLowerCase().replace(/\s+/g, "-")
-                  ? "white"
-                  : "#333",
-              padding: "0.5rem 1.2rem",
-              borderRadius: "25px",
-              textDecoration: "none",
-              transition: "0.3s",
-            }}
-          >
-            {cat.name}
-          </Link>
-        ))}
+        {categories.map((cat) => {
+          const slug = cat.name.toLowerCase().replace(/\s+/g, "-");
+          return (
+            <Link
+              key={cat.id}
+              to={`/services/${slug}`}
+              className="category-btn"
+              style={{
+                backgroundColor:
+                  category === slug ? "var(--brand-pink)" : "#eee",
+                color: category === slug ? "white" : "#333",
+                padding: "0.5rem 1.2rem",
+                borderRadius: "25px",
+                textDecoration: "none",
+                transition: "0.3s",
+              }}
+            >
+              {cat.name}
+            </Link>
+          );
+        })}
       </div>
 
-      {/* 🩷 Service Cards */}
+      {/* ===================== SERVICE CARDS ====================== */}
       <div
         style={{
           display: "grid",
@@ -152,6 +165,7 @@ export default function Services() {
               >
                 {service.name}
               </h3>
+
               <p
                 style={{
                   fontSize: "0.95rem",
@@ -161,9 +175,11 @@ export default function Services() {
               >
                 {service.description}
               </p>
+
               <p style={{ fontWeight: "600", color: "#4a0e33" }}>
                 ₱{Number(service.price).toLocaleString()}
               </p>
+
               <span
                 style={{
                   display: "inline-block",

@@ -1,25 +1,36 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import axios from "axios";
+import axios from "../api/axiosConfig";              // ✔ use global axios
+import { loadConfig } from "../config/runtimeConfig"; // ✔ dynamic backend config
 import MDEditor from "@uiw/react-md-editor";
 import { motion } from "framer-motion";
-
-const API_URL = "http://127.0.0.1:8000/api";
 
 export default function BlogDetail() {
   const { slug } = useParams();
   const [blog, setBlog] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [backendBase, setBackendBase] = useState("");
 
   useEffect(() => {
-    axios
-      .get(`${API_URL}/blogs/`)
-      .then((res) => {
+    async function init() {
+      try {
+        const cfg = await loadConfig();
+        const base = cfg.backend_url.replace("/api", "");
+        setBackendBase(base);
+
+        // Fetch list (your backend doesn't have blogs/<slug>/ endpoint)
+        const res = await axios.get("blogs/");
         const post = res.data.find((b) => b.slug === slug);
+
         setBlog(post || null);
-      })
-      .catch((err) => console.error("Error fetching blog:", err))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error("Error fetching blog:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    init();
   }, [slug]);
 
   if (loading) {
@@ -34,31 +45,31 @@ export default function BlogDetail() {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-pink-50 text-gray-700">
         <h2 className="text-2xl font-semibold mb-4">Blog post not found 😢</h2>
-        <Link
-          to="/blog"
-          className="text-pink-600 font-medium hover:underline"
-        >
+        <Link to="/blog" className="text-pink-600 font-medium hover:underline">
           ← Back to Blog
         </Link>
       </div>
     );
   }
 
+  // Resolve cover image
+  const banner = blog.cover_image
+    ? blog.cover_image.startsWith("http")
+      ? blog.cover_image
+      : `${backendBase}${blog.cover_image}`
+    : null;
+
   return (
     <div className="bg-pink-50 min-h-screen pb-20">
       {/* Banner */}
-      {blog.cover_image && (
+      {banner && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="w-full h-72 md:h-96 overflow-hidden"
         >
           <img
-            src={
-              blog.cover_image.startsWith("http")
-                ? blog.cover_image
-                : `http://127.0.0.1:8000${blog.cover_image}`
-            }
+            src={banner}
             alt={blog.title}
             className="object-cover w-full h-full"
           />
@@ -66,7 +77,7 @@ export default function BlogDetail() {
       )}
 
       {/* Article Container */}
-      <div className="max-w-3xl mx-auto px-6 mt-10 bg-white rounded-2xl shadow-sm py-10 px-8">
+      <div className="max-w-3xl mx-auto mt-10 bg-white rounded-2xl shadow-sm py-10 px-8">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}

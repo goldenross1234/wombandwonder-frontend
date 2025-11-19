@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../../api/axiosConfig";        // ✔ global axios (auto baseURL)
+import { loadConfig } from "../../config/runtimeConfig"; // ✔ dynamic backend URL
 import MDEditor from "@uiw/react-md-editor";
 import { motion } from "framer-motion";
 import "./BlogManager.css";
 
-const API_URL = "http://127.0.0.1:8000/api";
-
 export default function BlogManager() {
   const [blogs, setBlogs] = useState([]);
   const [editing, setEditing] = useState(false);
+  const [backendBase, setBackendBase] = useState("");
   const [form, setForm] = useState({
     id: null,
     title: "",
@@ -20,20 +20,39 @@ export default function BlogManager() {
   const [message, setMessage] = useState("");
   const token = localStorage.getItem("access");
 
+  // ==========================================================
+  // Load config + blogs
+  // ==========================================================
   useEffect(() => {
-    fetchBlogs();
+    async function init() {
+      try {
+        const cfg = await loadConfig();
+        setBackendBase(cfg.backend_url.replace("/api", ""));
+        fetchBlogs(); // safe to call here
+      } catch (err) {
+        console.error("Config load error:", err);
+      }
+    }
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ==========================================================
+  // Fetch Blogs
+  // ==========================================================
   const fetchBlogs = async () => {
     try {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await axios.get(`${API_URL}/blogs/`, { headers });
+      const res = await axios.get("blogs/", { headers });
       setBlogs(res.data);
     } catch (err) {
       console.error("Error fetching blogs:", err);
     }
   };
 
+  // ==========================================================
+  // Reset form
+  // ==========================================================
   const resetForm = () => {
     setEditing(false);
     setForm({
@@ -46,6 +65,9 @@ export default function BlogManager() {
     setFile(null);
   };
 
+  // ==========================================================
+  // Save (Draft or Publish)
+  // ==========================================================
   const handleSave = async (publish = false) => {
     try {
       const formData = new FormData();
@@ -55,13 +77,16 @@ export default function BlogManager() {
       if (form.video_url) formData.append("video_url", form.video_url);
       if (file) formData.append("cover_image", file);
 
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        "Content-Type": "multipart/form-data",
+      };
 
       if (form.id) {
-        await axios.put(`${API_URL}/blogs/${form.id}/`, formData, { headers });
+        await axios.put(`blogs/${form.id}/`, formData, { headers });
         setMessage("✅ Blog updated successfully!");
       } else {
-        await axios.post(`${API_URL}/blogs/`, formData, { headers });
+        await axios.post("blogs/", formData, { headers });
         setMessage(publish ? "✅ Blog published!" : "✅ Draft saved!");
       }
 
@@ -73,17 +98,23 @@ export default function BlogManager() {
     }
   };
 
+  // ==========================================================
+  // Edit Blog
+  // ==========================================================
   const handleEdit = (blog) => {
     setForm(blog);
     setEditing(true);
     setMessage("");
   };
 
+  // ==========================================================
+  // Delete Blog
+  // ==========================================================
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this post?")) return;
     try {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      await axios.delete(`${API_URL}/blogs/${id}/`, { headers });
+      await axios.delete(`blogs/${id}/`, { headers });
       setMessage("🗑️ Blog deleted.");
       fetchBlogs();
     } catch (err) {
@@ -92,6 +123,9 @@ export default function BlogManager() {
     }
   };
 
+  // ==========================================================
+  // Render
+  // ==========================================================
   return (
     <div className="blog-admin-page">
       <h1 className="page-title">💗 Manage Blog Posts</h1>
@@ -121,7 +155,7 @@ export default function BlogManager() {
                       src={
                         blog.cover_image.startsWith("http")
                           ? blog.cover_image
-                          : `http://127.0.0.1:8000${blog.cover_image}`
+                          : `${backendBase}${blog.cover_image}`
                       }
                       alt={blog.title}
                       className="blog-cover"
@@ -176,7 +210,7 @@ export default function BlogManager() {
             <MDEditor
               value={form.content}
               onChange={(value) => setForm({ ...form, content: value })}
-              height={400} // larger editor
+              height={400}
               preview="edit"
               style={{
                 borderRadius: "12px",
@@ -207,7 +241,7 @@ export default function BlogManager() {
                 src={
                   form.cover_image.startsWith("http")
                     ? form.cover_image
-                    : `http://127.0.0.1:8000${form.cover_image}`
+                    : `${backendBase}${form.cover_image}`
                 }
                 alt="Cover Preview"
                 className="cover-preview"
@@ -232,7 +266,6 @@ export default function BlogManager() {
             </button>
           </div>
         </motion.div>
-
       )}
     </div>
   );

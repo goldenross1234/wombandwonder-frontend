@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../../api/axiosConfig";   // ✔ global axios using runtime config
+import { loadConfig } from "../../config/runtimeConfig"; // ✔ for image base URL
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "framer-motion";
 import "./AboutManager.css";
-
-const API_URL = "http://127.0.0.1:8000/api";
 
 export default function AboutManager() {
   const [about, setAbout] = useState(null);
@@ -13,21 +12,36 @@ export default function AboutManager() {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const token = localStorage.getItem("access");
+  const [backendBase, setBackendBase] = useState("");
 
+  // ============================================================
+  // LOAD CONFIG + ABOUT PAGE
+  // ============================================================
   useEffect(() => {
-    axios
-      .get(`${API_URL}/about/`)
-      .then((res) => {
+    async function fetchData() {
+      try {
+        // Load backend URL from config.json
+        const config = await loadConfig();
+        setBackendBase(config.backend_url.replace("/api", ""));
+
+        const res = await axios.get("about/");
         const data = res.data[0] || {};
+
         setAbout(data);
         setSections(data.sections || []);
-      })
-      .catch((err) => console.error("Error fetching about:", err))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error("Error fetching about:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
   }, []);
 
-  // 🩷 Save main About page
+  // ============================================================
+  // SAVE MAIN ABOUT PAGE
+  // ============================================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!about?.id) return alert("⚠️ No About page found.");
@@ -38,20 +52,21 @@ export default function AboutManager() {
     if (file) formData.append("image", file);
 
     try {
-      const headers = {
-        "Content-Type": "multipart/form-data",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      };
-      await axios.put(`${API_URL}/about/${about.id}/`, formData, { headers });
+      await axios.put(`about/${about.id}/`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
       setMessage("✅ About page updated successfully!");
       setFile(null);
     } catch (err) {
       console.error("Error updating About page:", err);
-      setMessage("❌ Failed to update About page. Try again.");
+      setMessage("❌ Failed to update About page.");
     }
   };
 
-  // 🌸 Add new section
+  // ============================================================
+  // ADD NEW SECTION
+  // ============================================================
   const addSection = () => {
     setSections([
       ...sections,
@@ -59,14 +74,12 @@ export default function AboutManager() {
     ]);
   };
 
-  // ✍️ Handle text changes
   const handleSectionChange = (index, field, value) => {
     const updated = [...sections];
     updated[index][field] = value;
     setSections(updated);
   };
 
-  // 🖼️ Handle image upload
   const handleSectionImage = (index, file) => {
     const updated = [...sections];
     updated[index].imageFile = file;
@@ -74,29 +87,30 @@ export default function AboutManager() {
     setSections(updated);
   };
 
-  // ❌ Delete a section (backend + frontend)
+  // ============================================================
+  // DELETE SECTION
+  // ============================================================
   const removeSection = async (index) => {
     const section = sections[index];
+    if (!window.confirm("Delete this section?")) return;
 
-    if (!window.confirm("Are you sure you want to delete this section?")) return;
-
-    // Animate removal from UI
+    // Remove from UI immediately
     setSections((prev) => prev.filter((_, i) => i !== index));
 
     if (section.id) {
       try {
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        await axios.delete(`${API_URL}/sections/${section.id}/`, { headers });
-        console.log(`✅ Deleted section ${section.id} from backend`);
+        await axios.delete(`sections/${section.id}/`);
         setMessage("🗑️ Section deleted successfully.");
       } catch (err) {
         console.error("Error deleting section:", err);
-        setMessage("❌ Failed to delete section from backend.");
+        setMessage("❌ Failed to delete section.");
       }
     }
   };
 
-  // 💾 Save all sections
+  // ============================================================
+  // SAVE ALL SECTIONS
+  // ============================================================
   const handleSaveSections = async () => {
     try {
       for (const sec of sections) {
@@ -104,22 +118,23 @@ export default function AboutManager() {
         formData.append("title", sec.title);
         formData.append("content", sec.content);
         formData.append("active", sec.active);
-        if (sec.imageFile) formData.append("image", sec.imageFile);
-
-        const headers = {
-          "Content-Type": "multipart/form-data",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        };
-
-        // Always include about_page — both for new and existing sections
         formData.append("about_page", about.id);
 
+        if (sec.imageFile) {
+          formData.append("image", sec.imageFile);
+        }
+
         if (sec.id) {
-          await axios.put(`${API_URL}/sections/${sec.id}/`, formData, { headers });
+          await axios.put(`sections/${sec.id}/`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
         } else {
-          await axios.post(`${API_URL}/sections/`, formData, { headers });
+          await axios.post(`sections/`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
         }
       }
+
       setMessage("✅ All sections saved successfully!");
     } catch (err) {
       console.error("Error saving sections:", err);
@@ -127,6 +142,9 @@ export default function AboutManager() {
     }
   };
 
+  // ============================================================
+  // RENDER
+  // ============================================================
   if (loading) return <p>Loading...</p>;
 
   return (
@@ -137,7 +155,7 @@ export default function AboutManager() {
 
       {about ? (
         <>
-          {/* ====== MAIN ABOUT FORM ====== */}
+          {/* MAIN FORM */}
           <form onSubmit={handleSubmit} className="about-form">
             <label>Title</label>
             <input
@@ -146,16 +164,16 @@ export default function AboutManager() {
               onChange={(e) => setAbout({ ...about, title: e.target.value })}
             />
 
+            {/* EDITOR */}
             <div className="editor-container">
               <div className="editor-pane">
-                <label>Content (Markdown Supported)</label>
+                <label>Content</label>
                 <textarea
                   rows="10"
                   value={about.content || ""}
                   onChange={(e) =>
                     setAbout({ ...about, content: e.target.value })
                   }
-                  placeholder="Write your About content here using Markdown..."
                 />
               </div>
 
@@ -163,24 +181,26 @@ export default function AboutManager() {
                 <label>Live Preview</label>
                 <div className="preview-box">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {about.content || "*Start typing to see preview...*"}
+                    {about.content || "*Start typing...*"}
                   </ReactMarkdown>
                 </div>
               </div>
             </div>
 
+            {/* IMAGE */}
             <label>Image</label>
             {about.image && (
               <img
                 src={
                   about.image.startsWith("http")
                     ? about.image
-                    : `http://127.0.0.1:8000${about.image}`
+                    : `${backendBase}${about.image}`
                 }
                 alt="About Preview"
                 className="main-image-preview"
               />
             )}
+
             <input type="file" onChange={(e) => setFile(e.target.files[0])} />
 
             <button type="submit" className="save-btn">
@@ -188,7 +208,7 @@ export default function AboutManager() {
             </button>
           </form>
 
-          {/* ====== SECTIONS ====== */}
+          {/* SECTIONS */}
           <h2 className="section-title">🌸 About Sections</h2>
 
           <AnimatePresence>
@@ -199,7 +219,6 @@ export default function AboutManager() {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
               >
                 <div className="section-header">
                   <h3>Section {index + 1}</h3>
@@ -214,7 +233,6 @@ export default function AboutManager() {
 
                 <input
                   type="text"
-                  placeholder="Section Title"
                   value={sec.title || ""}
                   onChange={(e) =>
                     handleSectionChange(index, "title", e.target.value)
@@ -224,7 +242,6 @@ export default function AboutManager() {
                 <div className="section-markdown">
                   <textarea
                     rows="6"
-                    placeholder="Section Content (Markdown)"
                     value={sec.content || ""}
                     onChange={(e) =>
                       handleSectionChange(index, "content", e.target.value)
@@ -237,13 +254,14 @@ export default function AboutManager() {
                   </div>
                 </div>
 
+                {/* SECTION IMAGE */}
                 <label>Section Image</label>
                 {sec.imagePreview || sec.image ? (
                   <img
                     src={
                       sec.imagePreview
                         ? sec.imagePreview
-                        : `http://127.0.0.1:8000${sec.image}`
+                        : `${backendBase}${sec.image}`
                     }
                     alt={sec.title}
                     className="section-image-preview"
@@ -263,18 +281,10 @@ export default function AboutManager() {
           </AnimatePresence>
 
           <div className="section-actions">
-            <button
-              type="button"
-              onClick={addSection}
-              className="add-section-btn"
-            >
+            <button onClick={addSection} className="add-section-btn">
               + Add New Section
             </button>
-            <button
-              type="button"
-              onClick={handleSaveSections}
-              className="save-btn"
-            >
+            <button onClick={handleSaveSections} className="save-btn">
               💾 Save All Sections
             </button>
           </div>

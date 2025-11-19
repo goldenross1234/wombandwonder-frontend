@@ -1,12 +1,14 @@
 // src/pages/AdminPanel/UserManager.js
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useEffect, useState, useCallback } from "react";
+import axios from "../../api/axiosConfig";    // ✔ global axios
+import { loadConfig } from "../../config/runtimeConfig"; // ✔ dynamic backend
 
 export default function UserManager() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -14,88 +16,94 @@ export default function UserManager() {
     password: "",
   });
 
-  const token = localStorage.getItem("access");
   const currentRole = localStorage.getItem("role");
 
-  // 🧠 Fetch all users
-  useEffect(() => {
-    if (!token) return;
-    setLoading(true);
-    axios
-      .get("http://127.0.0.1:8000/api/users/", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => setUsers(res.data))
-      .catch((err) => console.error("Error fetching users:", err))
-      .finally(() => setLoading(false));
-  }, [token]);
+  // ---------------------------------------------------------------
+  // Fetch Users (useCallback to satisfy ESLint)
+  // ---------------------------------------------------------------
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await axios.get("users/");
+      setUsers(res.data);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // 📝 Handle form input
+  // ---------------------------------------------------------------
+  // INITIAL LOAD
+  // ---------------------------------------------------------------
+  useEffect(() => {
+    async function init() {
+      await loadConfig(); // ensures axios uses the right backend URL
+      fetchUsers();
+    }
+    init();
+  }, [fetchUsers]);
+
+  // ---------------------------------------------------------------
+  // Input handler
+  // ---------------------------------------------------------------
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // ➕ Create or Update User
-  const handleSubmit = (e) => {
+  // ---------------------------------------------------------------
+  // Create or Update User
+  // ---------------------------------------------------------------
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const config = { headers: { Authorization: `Bearer ${token}` } };
 
-    if (editingUser) {
-      // ✏️ Update user
-      axios
-        .put(`http://127.0.0.1:8000/api/users/${editingUser.id}/`, formData, config)
-        .then(() => {
-          alert("✅ User updated successfully!");
-          setEditingUser(null);
-          setShowForm(false);
-          fetchUsers();
-        })
-        .catch((err) => console.error("Error updating user:", err));
-    } else {
-      // ➕ Create new user
-      axios
-        .post("http://127.0.0.1:8000/api/users/", formData, config)
-        .then(() => {
-          alert("✅ User created successfully!");
-          setFormData({ username: "", email: "", role: "staff", password: "" });
-          setShowForm(false);
-          fetchUsers();
-        })
-        .catch((err) => console.error("Error creating user:", err));
+    try {
+      if (editingUser) {
+        // Update user
+        await axios.put(`users/${editingUser.id}/`, formData);
+        alert("✅ User updated successfully!");
+      } else {
+        // Create new user
+        await axios.post("users/", formData);
+        alert("✅ User created successfully!");
+      }
+
+      // Reset
+      setShowForm(false);
+      setEditingUser(null);
+      setFormData({ username: "", email: "", role: "staff", password: "" });
+
+      fetchUsers();
+    } catch (err) {
+      console.error("Error saving user:", err);
+      alert("❌ Failed to save user.");
     }
   };
 
-  // 🔄 Reload list after operations
-  const fetchUsers = () => {
-    axios
-      .get("http://127.0.0.1:8000/api/users/", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => setUsers(res.data))
-      .catch((err) => console.error("Error fetching users:", err));
-  };
-
-  // 🗑️ Delete User
-  const handleDelete = (id) => {
+  // ---------------------------------------------------------------
+  // Delete User
+  // ---------------------------------------------------------------
+  const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
-    axios
-      .delete(`http://127.0.0.1:8000/api/users/${id}/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then(() => {
-        alert("🗑️ User deleted successfully!");
-        setUsers(users.filter((u) => u.id !== id));
-      })
-      .catch((err) => console.error("Error deleting user:", err));
+
+    try {
+      await axios.delete(`users/${id}/`);
+      alert("🗑️ User deleted successfully!");
+      setUsers(users.filter((u) => u.id !== id));
+    } catch (err) {
+      console.error("Error deleting user:", err);
+    }
   };
 
+  // ---------------------------------------------------------------
+  // RENDER
+  // ---------------------------------------------------------------
   if (loading) return <p>Loading users...</p>;
 
   return (
     <div style={{ maxWidth: "900px", margin: "2rem auto" }}>
       <h1 style={{ color: "#b83280" }}>👥 Manage Users</h1>
 
-      {/* ✅ Add/Edit Button */}
+      {/* Only owners/superusers can add users */}
       {currentRole !== "staff" && (
         <button
           onClick={() => {
@@ -116,7 +124,7 @@ export default function UserManager() {
         </button>
       )}
 
-      {/* 🧾 Add/Edit User Form */}
+      {/* FORM */}
       {showForm && (
         <form
           onSubmit={handleSubmit}
@@ -164,6 +172,7 @@ export default function UserManager() {
             </select>
           </div>
 
+          {/* Password field only shown when creating a new user */}
           {!editingUser && (
             <div>
               <label>Password</label>
@@ -195,7 +204,7 @@ export default function UserManager() {
         </form>
       )}
 
-      {/* 📋 User Table */}
+      {/* USER TABLE */}
       <table
         style={{
           width: "100%",
@@ -212,6 +221,7 @@ export default function UserManager() {
             <th>Actions</th>
           </tr>
         </thead>
+
         <tbody>
           {users.length > 0 ? (
             users.map((user) => (
@@ -220,6 +230,7 @@ export default function UserManager() {
                 <td>{user.email}</td>
                 <td>{user.role}</td>
                 <td>{user.is_active ? "✅" : "❌"}</td>
+
                 <td>
                   <button
                     onClick={() => {
@@ -231,6 +242,7 @@ export default function UserManager() {
                   >
                     ✏️ Edit
                   </button>
+
                   <button
                     onClick={() => handleDelete(user.id)}
                     style={{ color: "red" }}

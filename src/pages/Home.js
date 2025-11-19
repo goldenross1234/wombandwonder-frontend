@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../api/axiosConfig";              // ✔ global axios
+import { loadConfig } from "../config/runtimeConfig"; // ✔ dynamic backend config
 import Slider from "react-slick";
 import { Link } from "react-router-dom";
 
@@ -7,33 +8,34 @@ const Home = () => {
   const [hero, setHero] = useState(null);
   const [banners, setBanners] = useState([]);
   const [services, setServices] = useState([]);
+  const [backendBase, setBackendBase] = useState("");
 
-  // Fetch hero section data
+  // =====================================================
+  // LOAD BACKEND CONFIG + ALL HOME DATA
+  // =====================================================
   useEffect(() => {
-    axios
-      .get("http://127.0.0.1:8000/api/hero/")
-      .then((res) => {
-        if (res.data.length > 0) {
-          setHero(res.data[0]); // show first active hero
-        }
-      })
-      .catch((err) => console.error("Hero fetch error:", err));
-  }, []);
+    async function init() {
+      try {
+        const cfg = await loadConfig();
+        const base = cfg.backend_url.replace("/api", "");
+        setBackendBase(base);
 
-  // Fetch banners
-  useEffect(() => {
-    axios
-      .get("http://127.0.0.1:8000/api/banners/")
-      .then((res) => setBanners(res.data))
-      .catch((err) => console.error("Banner fetch error:", err));
-  }, []);
+        // Hero
+        const heroRes = await axios.get("hero/");
+        if (heroRes.data.length > 0) setHero(heroRes.data[0]);
 
-  // Fetch featured services
-  useEffect(() => {
-    axios
-      .get("http://127.0.0.1:8000/api/services/")
-      .then((res) => setServices(res.data.slice(0, 4))) // limit to 4 featured
-      .catch((err) => console.error("Service fetch error:", err));
+        // Banners
+        const bannerRes = await axios.get("banners/");
+        setBanners(bannerRes.data);
+
+        // Featured services
+        const serviceRes = await axios.get("services/");
+        setServices(serviceRes.data.slice(0, 4));
+      } catch (err) {
+        console.error("Home page load error:", err);
+      }
+    }
+    init();
   }, []);
 
   const settings = {
@@ -50,7 +52,9 @@ const Home = () => {
 
   return (
     <div style={{ backgroundColor: "#fffafc" }}>
-      {/* ✅ Dynamic Hero Section */}
+      {/* =====================================================
+          HERO SECTION
+      ===================================================== */}
       <section
         style={{
           display: "flex",
@@ -74,6 +78,7 @@ const Home = () => {
           >
             {hero ? hero.title : "Healthcare for women, by women."}
           </h1>
+
           <p
             style={{
               color: "#4a0e33",
@@ -83,8 +88,9 @@ const Home = () => {
           >
             {hero
               ? hero.subtitle
-              : "Compassionate, comprehensive care — designed by women, for women. Experience a clinic that understands your journey."}
+              : "Compassionate, comprehensive care — designed by women, for women."}
           </p>
+
           <Link
             to="/services"
             style={{
@@ -106,7 +112,7 @@ const Home = () => {
             src={
               hero.image.startsWith("http")
                 ? hero.image
-                : `http://127.0.0.1:8000${hero.image}`
+                : `${backendBase}${hero.image}`
             }
             alt="Hero"
             style={{
@@ -127,7 +133,9 @@ const Home = () => {
         )}
       </section>
 
-      {/* Carousel Section */}
+      {/* =====================================================
+          BANNER SLIDER
+      ===================================================== */}
       <section
         style={{
           margin: "3rem auto",
@@ -144,7 +152,7 @@ const Home = () => {
                   src={
                     banner.image.startsWith("http")
                       ? banner.image
-                      : `http://127.0.0.1:8000${banner.image}`
+                      : `${backendBase}${banner.image}`
                   }
                   alt={banner.title || "Womb & Wonder Banner"}
                   style={{
@@ -155,6 +163,7 @@ const Home = () => {
                     boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
                   }}
                 />
+
                 {banner.title && (
                   <div
                     style={{
@@ -182,7 +191,9 @@ const Home = () => {
         )}
       </section>
 
-      {/* Featured Services Section */}
+      {/* =====================================================
+          FEATURED SERVICES
+      ===================================================== */}
       <section
         style={{
           backgroundColor: "#fdf2f7",
@@ -239,6 +250,7 @@ const Home = () => {
                 >
                   {service.name}
                 </h3>
+
                 <p
                   style={{
                     color: "#555",
@@ -248,6 +260,7 @@ const Home = () => {
                 >
                   {service.description}
                 </p>
+
                 <p
                   style={{
                     color: "var(--brand-pink)",
@@ -258,6 +271,7 @@ const Home = () => {
                 >
                   ₱{service.price}
                 </p>
+
                 <Link
                   to="/services"
                   style={{
@@ -280,8 +294,6 @@ const Home = () => {
           )}
         </div>
       </section>
-
-   
     </div>
   );
 };

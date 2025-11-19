@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import axios from "../../api/axiosConfig";        // ✔ use global axios baseURL
 import { useNavigate } from "react-router-dom";
 
 export default function Login() {
@@ -10,8 +10,10 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+
     try {
-      const res = await axios.post("http://127.0.0.1:8000/api/auth/login/", {
+      const res = await axios.post("auth/login/", {
         username,
         password,
       });
@@ -21,6 +23,7 @@ export default function Login() {
 
       navigate("/admin-panel");
     } catch (err) {
+      console.error(err);
       setError("Invalid credentials. Please try again.");
     }
   };

@@ -1,27 +1,12 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
-
-const API = "http://127.0.0.1:8000/api";
+import axios from "../../api/axiosConfig";            // ✔ unified axios with baseURL
+import { loadConfig } from "../../config/runtimeConfig"; // ✔ dynamic backend
 
 export default function QueueDashboard() {
   const [queue, setQueue] = useState([]);
   const [started, setStarted] = useState(false);
   const [progress, setProgress] = useState(0);
   const [services, setServices] = useState([]);
-
-const loadServices = async () => {
-  try {
-    const res = await axios.get(`${API}/services/`);
-    setServices(res.data);
-  } catch (err) {
-    console.error("loadServices error:", err);
-  }
-};
-
-useEffect(() => {
-  loadServices();
-}, []);
-
 
   const [form, setForm] = useState({
     name: "",
@@ -31,16 +16,44 @@ useEffect(() => {
     selected_service: "",
   });
 
-  // Reset on refresh
+  // ============================================================
+  // LOAD CONFIG + SERVICES
+  // ============================================================
+  useEffect(() => {
+    async function init() {
+      try {
+        await loadConfig();  // still needed for axios to work
+        loadServices();
+      } catch (err) {
+        console.error("Config or services load error:", err);
+      }
+    }
+    init();
+  }, []);
+
+
+  // Load services from backend
+  const loadServices = async () => {
+    try {
+      const res = await axios.get("services/");
+      setServices(res.data);
+    } catch (err) {
+      console.error("loadServices error:", err);
+    }
+  };
+
+  // Reset startup loader
   useEffect(() => {
     setStarted(false);
     setProgress(0);
   }, []);
 
-  // Load queue
+  // ============================================================
+  // QUEUE FETCHER
+  // ============================================================
   const fetchQueue = async () => {
     try {
-      const res = await axios.get(`${API}/queue/`);
+      const res = await axios.get("queue/");
       setQueue(res.data);
     } catch (err) {
       console.error("fetchQueue error:", err);
@@ -50,20 +63,28 @@ useEffect(() => {
   useEffect(() => {
     if (!started) return;
     fetchQueue();
-    const interval = setInterval(fetchQueue, 3000);
-    return () => clearInterval(interval);
+    const timer = setInterval(fetchQueue, 3000);
+    return () => clearInterval(timer);
   }, [started]);
 
-  // Form change
+  // ============================================================
+  // FORM HANDLER
+  // ============================================================
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  // Add patient
+  // Add patient to queue
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API}/queue/`, form);
-      setForm({ name: "", age: "", notes: "", priority: "regular" });
+      await axios.post("queue/", form);
+      setForm({
+        name: "",
+        age: "",
+        notes: "",
+        priority: "regular",
+        selected_service: "",
+      });
       fetchQueue();
     } catch (err) {
       console.error("add patient error:", err);
@@ -71,17 +92,21 @@ useEffect(() => {
     }
   };
 
-  // Delete single
+  // Delete single queue item
   const deleteEntry = async (id) => {
     if (!window.confirm("Delete this queue entry?")) return;
-    await axios.delete(`${API}/queue/${id}/`);
-    fetchQueue();
+    try {
+      await axios.delete(`queue/${id}/`);
+      fetchQueue();
+    } catch (err) {
+      console.error("deleteEntry error:", err);
+    }
   };
 
-  // 1) Serve — only set status to "serving"
+  // Serve patient
   const servePatient = async (id) => {
     try {
-      await axios.patch(`${API}/queue/${id}/`, { status: "serving" });
+      await axios.patch(`queue/${id}/`, { status: "serving" });
       fetchQueue();
     } catch (err) {
       console.error("servePatient error:", err);
@@ -89,25 +114,21 @@ useEffect(() => {
     }
   };
 
-  // 2) Done — move to repository + remove
+  // Mark patient as done (moves to repository)
   const markDone = async (id) => {
     try {
-      await axios.post(`${API}/queue/serve/${id}/`);
+      await axios.post(`queue/serve/${id}/`);
       fetchQueue();
     } catch (err) {
       console.error("markDone error:", err);
-      if (err.response && err.response.data) {
-        alert(err.response.data.error || "Error marking done");
-      } else {
-        alert("Error marking done");
-      }
+      alert("Error marking done");
     }
   };
 
-  // Update status e.g., no_show
+  // Update status: no_show, waiting, etc.
   const updateStatus = async (id, status) => {
     try {
-      await axios.patch(`${API}/queue/${id}/`, { status });
+      await axios.patch(`queue/${id}/`, { status });
       fetchQueue();
     } catch (err) {
       console.error("updateStatus error:", err);
@@ -115,25 +136,26 @@ useEffect(() => {
     }
   };
 
-  // Clear all entries
+  // Clear entire queue
   const clearQueue = async () => {
-    if (!window.confirm("Delete ALL queue entries? This cannot be undone.")) return;
+    if (!window.confirm("Delete ALL queue entries?")) return;
     try {
-      await axios.delete(`${API}/queue/clear/`);
+      await axios.delete("queue/clear/");
       fetchQueue();
     } catch (err) {
       console.error("clearQueue error:", err);
-      alert("Error clearing queue");
     }
   };
 
-  // Start day loader
+  // ============================================================
+  // LOADING SCREEN BEFORE SYSTEM START
+  // ============================================================
   const startDay = () => {
     let p = 0;
-    setProgress(0);
     const timer = setInterval(() => {
       p += 4;
       setProgress(p);
+
       if (p >= 100) {
         clearInterval(timer);
         setStarted(true);
@@ -141,7 +163,7 @@ useEffect(() => {
     }, 80);
   };
 
-  // BEFORE start
+  // BEFORE clicking "Start Day"
   if (!started) {
     return (
       <div
@@ -165,7 +187,6 @@ useEffect(() => {
               color: "white",
               border: "none",
               borderRadius: "12px",
-              cursor: "pointer",
             }}
           >
             Start the Day
@@ -201,10 +222,12 @@ useEffect(() => {
     );
   }
 
-  // AFTER start
+  // ============================================================
+  // MAIN DASHBOARD AFTER START
+  // ============================================================
   return (
     <div style={{ display: "flex", gap: "30px", padding: "20px" }}>
-      {/* Add patient form */}
+      {/* FORM */}
       <div
         style={{
           width: "350px",
@@ -225,7 +248,6 @@ useEffect(() => {
         >
           <option value="">-- Select Service --</option>
 
-          {/* Group services by category */}
           {[...new Set(services.map((s) => s.category?.name))].map((cat) => (
             <optgroup key={cat} label={cat || "Other"}>
               {services
@@ -238,7 +260,6 @@ useEffect(() => {
             </optgroup>
           ))}
         </select>
-
 
         <form onSubmit={handleSubmit}>
           <label>Name:</label>
@@ -294,7 +315,7 @@ useEffect(() => {
         </form>
       </div>
 
-      {/* Queue table */}
+      {/* QUEUE TABLE */}
       <div style={{ flex: 1 }}>
         <h2>🩷 Queue Manager</h2>
 
@@ -331,38 +352,43 @@ useEffect(() => {
               <tr
                 key={q.id}
                 style={{
-                  background: q.priority === "priority" ? "#ffe8e8" : "white",
-                  animation: q.priority === "priority" ? "blink 1s infinite" : "none",
+                  background:
+                    q.priority === "priority" ? "#ffe8e8" : "white",
+                  animation:
+                    q.priority === "priority" ? "blink 1s infinite" : "none",
                 }}
               >
                 <td>{i + 1}</td>
                 <td>{q.queue_number}</td>
                 <td>{q.name}</td>
                 <td>{q.age || "—"}</td>
-                <td style={{ textTransform: "capitalize" }}>{q.priority}</td>
+                <td style={{ textTransform: "capitalize" }}>
+                  {q.priority}
+                </td>
                 <td>{q.status}</td>
 
                 <td>
-                  <button onClick={() => servePatient(q.id)} style={{ marginRight: 6 }}>
+                  <button onClick={() => servePatient(q.id)}>
                     Serve Regular
                   </button>
 
-                  <button onClick={() => servePatient(q.id)} style={{ marginRight: 6 }}>
+                  <button onClick={() => servePatient(q.id)}>
                     Serve Priority
                   </button>
 
-                  <button onClick={() => markDone(q.id)} style={{ marginRight: 6 }}>
+                  <button onClick={() => markDone(q.id)}>
                     Done
                   </button>
 
-                  <button onClick={() => updateStatus(q.id, "no_show")} style={{ marginRight: 6 }}>
+                  <button
+                    onClick={() => updateStatus(q.id, "no_show")}
+                  >
                     No Show
                   </button>
 
                   <button
                     onClick={() => deleteEntry(q.id)}
                     style={{
-                      marginLeft: "5px",
                       background: "#b71c1c",
                       color: "white",
                       border: "none",
@@ -375,6 +401,7 @@ useEffect(() => {
                 </td>
               </tr>
             ))}
+
             {queue.length === 0 && (
               <tr>
                 <td colSpan={7} style={{ textAlign: "center", padding: 20 }}>

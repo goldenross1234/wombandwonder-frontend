@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import axios from "../../api/axiosConfig";
+import { loadConfig } from "../../config/runtimeConfig";
 import { PlusCircle, Edit, Trash2, Save, X } from "lucide-react";
-
-const API_URL = "http://127.0.0.1:8000/api/service-categories/";
 
 export default function CategoryManager() {
   const [categories, setCategories] = useState([]);
@@ -14,31 +13,47 @@ export default function CategoryManager() {
     description: "",
   });
 
-  const token = localStorage.getItem("access");
-
+  // ============================================================
+  // LOAD CONFIG + CATEGORIES
+  // ============================================================
   useEffect(() => {
-    fetchCategories();
+    async function init() {
+      try {
+        await loadConfig();  // Load config but no need to store backendBase here
+        fetchCategories();
+      } catch (err) {
+        console.error("Config load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    init();
   }, []);
 
+
+  // ============================================================
+  // FETCH CATEGORIES
+  // ============================================================
   const fetchCategories = async () => {
     try {
-      const res = await axios.get(API_URL);
+      const res = await axios.get("service-categories/"); // no hardcoded URL
       setCategories(res.data);
     } catch (err) {
       console.error("Error fetching categories:", err);
-    } finally {
-      setLoading(false);
     }
   };
 
+  // ============================================================
+  // SAVE CATEGORY
+  // ============================================================
   const handleSave = async () => {
     try {
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
       if (editingCategory) {
-        await axios.put(`${API_URL}${editingCategory.id}/`, formData, { headers });
+        await axios.put(`service-categories/${editingCategory.id}/`, formData);
       } else {
-        await axios.post(API_URL, formData, { headers });
+        await axios.post("service-categories/", formData);
       }
+
       setShowModal(false);
       setEditingCategory(null);
       fetchCategories();
@@ -48,17 +63,23 @@ export default function CategoryManager() {
     }
   };
 
+  // ============================================================
+  // DELETE CATEGORY
+  // ============================================================
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this category?")) return;
+    if (!window.confirm("Delete this category?")) return;
+
     try {
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      await axios.delete(`${API_URL}${id}/`, { headers });
+      await axios.delete(`service-categories/${id}/`);
       fetchCategories();
     } catch (err) {
       console.error("Error deleting category:", err);
     }
   };
 
+  // ============================================================
+  // OPEN MODAL
+  // ============================================================
   const openModal = (category = null) => {
     if (category) {
       setEditingCategory(category);
@@ -76,28 +97,34 @@ export default function CategoryManager() {
     setShowModal(true);
   };
 
+  // ============================================================
+  // RENDER
+  // ============================================================
   if (loading) return <p>Loading categories...</p>;
 
   return (
     <div className="admin-page">
       <h2 className="page-title">📂 Manage Service Categories</h2>
 
-      {/* Add Button */}
       <button className="add-btn" onClick={() => openModal()}>
         <PlusCircle size={18} /> Add Category
       </button>
 
-      {/* Category List */}
       <div className="card-grid">
         {categories.map((cat) => (
           <div key={cat.id} className="card">
             <h3>{cat.name}</h3>
             <p>{cat.description || "No description provided."}</p>
+
             <div className="btn-group">
               <button onClick={() => openModal(cat)} className="edit-btn">
                 <Edit size={16} /> Edit
               </button>
-              <button onClick={() => handleDelete(cat.id)} className="delete-btn">
+
+              <button
+                onClick={() => handleDelete(cat.id)}
+                className="delete-btn"
+              >
                 <Trash2 size={16} /> Delete
               </button>
             </div>
@@ -114,21 +141,28 @@ export default function CategoryManager() {
             <label>Name:</label>
             <input
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
             />
 
             <label>Description:</label>
             <textarea
               rows="3"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
             />
 
             <div className="modal-actions">
               <button onClick={handleSave} className="save-btn">
                 <Save size={16} /> Save
               </button>
-              <button onClick={() => setShowModal(false)} className="cancel-btn">
+              <button
+                onClick={() => setShowModal(false)}
+                className="cancel-btn"
+              >
                 <X size={16} /> Cancel
               </button>
             </div>
@@ -168,10 +202,6 @@ export default function CategoryManager() {
           padding: 16px;
           box-shadow: 0 3px 8px rgba(0,0,0,0.08);
         }
-        .card h3 {
-          color: #4a0e33;
-          margin: 0 0 8px;
-        }
         .btn-group {
           display: flex;
           justify-content: space-between;
@@ -188,54 +218,6 @@ export default function CategoryManager() {
         }
         .edit-btn { background: #f8bbd0; color: #4a0e33; }
         .delete-btn { background: #fbe9e7; color: #e91e63; }
-
-        /* Modal */
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.4);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          z-index: 1000;
-        }
-        .modal-content {
-          background: #fff;
-          padding: 20px;
-          border-radius: 12px;
-          width: 400px;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-        .modal-content input,
-        .modal-content textarea {
-          width: 100%;
-          padding: 8px;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-        }
-        .modal-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 10px;
-          margin-top: 15px;
-        }
-        .save-btn {
-          background: #c2185b;
-          color: white;
-          border: none;
-          padding: 8px 14px;
-          border-radius: 8px;
-          cursor: pointer;
-        }
-        .cancel-btn {
-          background: #ddd;
-          border: none;
-          padding: 8px 14px;
-          border-radius: 8px;
-          cursor: pointer;
-        }
       `}</style>
     </div>
   );

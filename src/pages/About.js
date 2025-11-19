@@ -1,21 +1,29 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../api/axiosConfig";
+import { loadConfig } from "../config/runtimeConfig";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { motion } from "framer-motion"; // ✨ For smooth animations
-
-const API_URL = "http://127.0.0.1:8000/api";
+import { motion } from "framer-motion";
 
 export default function About() {
   const [about, setAbout] = useState(null);
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [backendBase, setBackendBase] = useState("");
 
+  // --------------------------------------------------
+  // LOAD CONFIG + ABOUT DATA
+  // --------------------------------------------------
   useEffect(() => {
-    const fetchAbout = async () => {
+    async function fetchData() {
       try {
-        const res = await axios.get(`${API_URL}/about/`);
+        const cfg = await loadConfig();
+        const base = cfg.backend_url.replace("/api", "");
+        setBackendBase(base);
+
+        const res = await axios.get("about/");
         const data = res.data[0];
+
         setAbout(data);
         setSections(data.sections || []);
       } catch (err) {
@@ -23,10 +31,14 @@ export default function About() {
       } finally {
         setLoading(false);
       }
-    };
-    fetchAbout();
+    }
+
+    fetchData();
   }, []);
 
+  // --------------------------------------------------
+  // LOADING UI
+  // --------------------------------------------------
   if (loading)
     return (
       <div style={{ textAlign: "center", marginTop: "3rem" }}>
@@ -41,9 +53,10 @@ export default function About() {
       </div>
     );
 
-  const imageUrl = about.image?.startsWith("http")
+  // dynamic URL for main image
+  const mainImageUrl = about.image?.startsWith("http")
     ? about.image
-    : `http://127.0.0.1:8000${about.image}`;
+    : `${backendBase}${about.image}`;
 
   return (
     <div style={{ backgroundColor: "#fff7f9", padding: "4rem 1.5rem" }}>
@@ -67,7 +80,7 @@ export default function About() {
 
         {about.image && (
           <img
-            src={imageUrl}
+            src={mainImageUrl}
             alt={about.title}
             style={{
               maxWidth: "700px",
@@ -96,7 +109,7 @@ export default function About() {
         </div>
       </motion.div>
 
-      {/* 🌿 ADDITIONAL ABOUT SECTIONS */}
+      {/* 🌿 ADDITIONAL SECTIONS */}
       {sections.length > 0 && (
         <div
           style={{
@@ -109,9 +122,10 @@ export default function About() {
         >
           {sections.map((sec, index) => {
             const isReversed = index % 2 !== 0;
+
             const sectionImageUrl = sec.image?.startsWith("http")
               ? sec.image
-              : `http://127.0.0.1:8000${sec.image}`;
+              : `${backendBase}${sec.image}`;
 
             return (
               <motion.div
@@ -128,7 +142,7 @@ export default function About() {
                   flexWrap: "wrap",
                 }}
               >
-                {/* Image */}
+                {/* IMAGE */}
                 {sec.image && (
                   <div style={{ flex: "1 1 400px", textAlign: "center" }}>
                     <img
@@ -149,7 +163,7 @@ export default function About() {
                   </div>
                 )}
 
-                {/* Text */}
+                {/* TEXT */}
                 <div
                   style={{
                     flex: "1 1 400px",
@@ -168,6 +182,7 @@ export default function About() {
                   >
                     {sec.title}
                   </h2>
+
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {sec.content}
                   </ReactMarkdown>

@@ -1,4 +1,3 @@
 // src/config/api.js
-const API = "http://127.0.0.1:8000/api";
-
+const API = process.env.REACT_APP_API_URL || "http://127.0.0.1:8000/api";
 export default API;

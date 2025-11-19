@@ -1,8 +1,7 @@
 // QueueReports.js
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-
-const API = "http://127.0.0.1:8000/api";
+import React, { useEffect, useState, useCallback } from "react";
+import axios from "../../api/axiosConfig";          // ✔ global axios
+import { loadConfig } from "../../config/runtimeConfig"; // ✔ dynamic backend
 
 export default function QueueReports() {
   const [reports, setReports] = useState([]);
@@ -13,11 +12,11 @@ export default function QueueReports() {
   const [toDate, setToDate] = useState("");
 
   // ----------------------------------------
-  // Load Reports
+  // Load Reports (wrapped in useCallback)
   // ----------------------------------------
-  const loadReports = async () => {
+  const loadReports = useCallback(async () => {
     try {
-      let url = `${API}/queue/reports/?sort=-served_at`;
+      let url = `queue/reports/?sort=-served_at`;
 
       if (!fromDate && !toDate) {
         url += `&date=${dateFilter}`;
@@ -32,11 +31,18 @@ export default function QueueReports() {
       console.error(err);
       alert("Failed to load reports");
     }
-  };
+  }, [dateFilter, fromDate, toDate]);
 
+  // ----------------------------------------
+  // INIT + reload when filter changes
+  // ----------------------------------------
   useEffect(() => {
-    loadReports();
-  }, [dateFilter]);
+    async function init() {
+      await loadConfig();   // ensures dynamic config is loaded
+      loadReports();
+    }
+    init();
+  }, [loadReports]); // ESLint-safe
 
   const applyRange = () => {
     if (!fromDate || !toDate) {
@@ -46,7 +52,9 @@ export default function QueueReports() {
     loadReports();
   };
 
+  // ----------------------------------------
   // CSV Export
+  // ----------------------------------------
   const exportCSV = () => {
     const rows = [
       ["Queue Number", "Name", "Age", "Priority", "Service", "Notes", "Served At"],
@@ -55,7 +63,7 @@ export default function QueueReports() {
         r.name,
         r.age || "",
         r.priority,
-        r.selected_service || "",   // ✅ NEW
+        r.selected_service || "",
         r.notes || "",
         new Date(r.served_at).toLocaleString(),
       ]),
@@ -152,7 +160,7 @@ export default function QueueReports() {
             <th>Name</th>
             <th>Age</th>
             <th>Priority</th>
-            <th>Service</th> {/* ✅ NEW */}
+            <th>Service</th>
             <th>Notes</th>
             <th>Served At</th>
           </tr>
@@ -175,7 +183,7 @@ export default function QueueReports() {
                 <td>{r.name}</td>
                 <td>{r.age || ""}</td>
                 <td>{r.priority}</td>
-                <td>{r.selected_service || "—"}</td> {/* ✅ NEW */}
+                <td>{r.selected_service || "—"}</td>
                 <td>{r.notes || ""}</td>
                 <td>{new Date(r.served_at).toLocaleString()}</td>
               </tr>
