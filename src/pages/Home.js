@@ -20,17 +20,25 @@ const Home = () => {
         const base = cfg.backend_url.replace("/api", "");
         setBackendBase(base);
 
-        // Hero
+        // 🔹 HERO
         const heroRes = await axios.get("hero/");
-        if (heroRes.data.length > 0) setHero(heroRes.data[0]);
+        const heroData = heroRes.data;
+        setHero(Array.isArray(heroData) && heroData.length > 0 ? heroData[0] : null);
 
-        // Banners
+        // 🔹 BANNERS (safe parsing)
         const bannerRes = await axios.get("banners/");
-        setBanners(bannerRes.data);
+        const bannerData = Array.isArray(bannerRes.data)
+          ? bannerRes.data
+          : bannerRes.data.results || []; // handle paginated format
+        setBanners(bannerData);
 
-        // Featured services
+        // 🔹 FEATURED SERVICES
         const serviceRes = await axios.get("services/");
-        setServices(serviceRes.data.slice(0, 4));
+        const serviceData = Array.isArray(serviceRes.data)
+          ? serviceRes.data
+          : serviceRes.data.results || [];
+        setServices(serviceData.slice(0, 4));
+
       } catch (err) {
         console.error("Home page load error:", err);
       }
@@ -107,13 +115,9 @@ const Home = () => {
           </Link>
         </div>
 
-        {hero && hero.image ? (
+        {hero?.image ? (
           <img
-            src={
-              hero.image.startsWith("http")
-                ? hero.image
-                : `${backendBase}${hero.image}`
-            }
+            src={hero.image.startsWith("http") ? hero.image : `${backendBase}${hero.image}`}
             alt="Hero"
             style={{
               width: "400px",
@@ -144,13 +148,13 @@ const Home = () => {
           textAlign: "center",
         }}
       >
-        {banners.length > 0 ? (
+        {Array.isArray(banners) && banners.length > 0 ? (
           <Slider {...settings}>
             {banners.slice(0, 5).map((banner) => (
               <div key={banner.id} style={{ position: "relative" }}>
                 <img
                   src={
-                    banner.image.startsWith("http")
+                    banner.image?.startsWith("http")
                       ? banner.image
                       : `${backendBase}${banner.image}`
                   }
@@ -185,9 +189,7 @@ const Home = () => {
             ))}
           </Slider>
         ) : (
-          <p style={{ textAlign: "center", color: "#555" }}>
-            No banners uploaded yet.
-          </p>
+          <p style={{ textAlign: "center", color: "#555" }}>No banners uploaded yet.</p>
         )}
       </section>
 
@@ -221,7 +223,7 @@ const Home = () => {
             margin: "0 auto",
           }}
         >
-          {services.length > 0 ? (
+          {Array.isArray(services) && services.length > 0 ? (
             services.map((service) => (
               <div
                 key={service.id}
@@ -233,42 +235,16 @@ const Home = () => {
                   border: "1px solid #f3e4ec",
                   transition: "0.3s ease",
                 }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.transform = "translateY(-6px)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.transform = "translateY(0px)")
-                }
               >
-                <h3
-                  style={{
-                    color: "var(--text-dark)",
-                    fontWeight: "600",
-                    fontSize: "1.25rem",
-                    marginBottom: "1rem",
-                  }}
-                >
+                <h3 style={{ fontWeight: "600", fontSize: "1.25rem", marginBottom: "1rem" }}>
                   {service.name}
                 </h3>
 
-                <p
-                  style={{
-                    color: "#555",
-                    lineHeight: "1.6",
-                    fontSize: "0.95rem",
-                  }}
-                >
+                <p style={{ color: "#555", lineHeight: "1.6", fontSize: "0.95rem" }}>
                   {service.description}
                 </p>
 
-                <p
-                  style={{
-                    color: "var(--brand-pink)",
-                    fontWeight: "700",
-                    fontSize: "1.1rem",
-                    marginTop: "1rem",
-                  }}
-                >
+                <p style={{ color: "var(--brand-pink)", fontWeight: "700", fontSize: "1.1rem", marginTop: "1rem" }}>
                   ₱{service.price}
                 </p>
 
