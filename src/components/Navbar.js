@@ -120,20 +120,23 @@ const Navbar = () => {
           <div className="dropdown">
             <button className="dropbtn">Services ▾</button>
             <div className="dropdown-content">
-              {categories.length > 0 ? (
-                categories.filter((cat) => cat.active).map((cat) => (
-                  <Link
-                    key={cat.id}
-                    to={`/services/${cat.name.toLowerCase().replace(/\s+/g, "-")}`}
-                  >
-                    {cat.name}
-                  </Link>
-                ))
+              {Array.isArray(categories) && categories.length > 0 ? (
+                categories
+                  .filter(cat => cat.active)
+                  .map(cat => (
+                    <Link
+                      key={cat.id}
+                      to={`/services/${cat.name.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      {cat.name}
+                    </Link>
+                  ))
               ) : (
                 <span style={{ padding: "0.5rem 1rem", color: "#999" }}>No categories</span>
               )}
             </div>
           </div>
+
 
           <Link to="/business" className="nav-link">Business</Link>
           <Link to="/locations" className="nav-link">Locations</Link>
