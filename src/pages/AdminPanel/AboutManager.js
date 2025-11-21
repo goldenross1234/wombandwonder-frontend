@@ -256,19 +256,32 @@ export default function AboutManager() {
 
                 {/* SECTION IMAGE */}
                 <label>Section Image</label>
-                {sec.imagePreview || sec.image ? (
-                  <img
-                    src={
-                      sec.imagePreview
-                        ? sec.imagePreview
-                        : `${backendBase}${sec.image}`
-                    }
-                    alt={sec.title}
-                    className="section-image-preview"
-                  />
-                ) : (
-                  <div className="image-placeholder">No Image Selected</div>
-                )}
+                {(() => {
+                  const isVideo = sec.image && sec.image.match(/\.(mp4|mov|webm)$/i);
+
+                  const imageUrl = sec.imagePreview
+                    ? sec.imagePreview
+                    : sec.image?.startsWith("http")
+                    ? sec.image
+                    : sec.image
+                    ? `${backendBase}/${sec.image.replace(/^\//, "")}`
+                    : null;
+
+                  return isVideo ? (
+                    <video controls className="section-image-preview">
+                      <source src={imageUrl} type="video/mp4" />
+                    </video>
+                  ) : imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={sec.title}
+                      className="section-image-preview"
+                    />
+                  ) : (
+                    <div className="image-placeholder">No Media Selected</div>
+                  );
+                })()}
+
 
                 <input
                   type="file"
