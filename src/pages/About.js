@@ -36,9 +36,6 @@ export default function About() {
     fetchData();
   }, []);
 
-  // --------------------------------------------------
-  // LOADING UI
-  // --------------------------------------------------
   if (loading)
     return (
       <div style={{ textAlign: "center", marginTop: "3rem" }}>
@@ -53,7 +50,7 @@ export default function About() {
       </div>
     );
 
-  // dynamic URL for main image
+  // Main image URL
   const mainImageUrl = about.image?.startsWith("http")
     ? about.image
     : `${backendBase}${about.image}`;
@@ -123,9 +120,15 @@ export default function About() {
           {sections.map((sec, index) => {
             const isReversed = index % 2 !== 0;
 
-            const sectionImageUrl = sec.image?.startsWith("http")
+            // Generate a safe media URL
+            const mediaUrl = sec.image?.startsWith("http")
               ? sec.image
-              : `${backendBase}${sec.image}`;
+              : sec.image
+              ? `${backendBase}/${sec.image.replace(/^\//, "")}`
+              : null;
+
+            // Detect video files
+            const isVideo = mediaUrl?.match(/\.(mp4|mov|webm|mkv)$/i);
 
             return (
               <motion.div
@@ -142,28 +145,44 @@ export default function About() {
                   flexWrap: "wrap",
                 }}
               >
-                {/* IMAGE */}
-                {sec.image && (
-                  <div style={{ flex: "1 1 400px", textAlign: "center" }}>
-                    <img
-                      src={sectionImageUrl}
-                      alt={sec.title}
-                      style={{
-                        width: "100%",
-                        maxWidth: "500px",
-                        borderRadius: "12px",
-                        objectFit: "cover",
-                        boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-                      }}
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = "/placeholder-about.jpg";
-                      }}
-                    />
+                {/* MEDIA ELEMENT */}
+                {mediaUrl && (
+                  <div
+                    style={{ flex: "1 1 400px", textAlign: "center" }}
+                  >
+                    {isVideo ? (
+                      <video
+                        controls
+                        style={{
+                          width: "100%",
+                          maxWidth: "500px",
+                          borderRadius: "12px",
+                          boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+                        }}
+                      >
+                        <source src={mediaUrl} type="video/mp4" />
+                      </video>
+                    ) : (
+                      <img
+                        src={mediaUrl}
+                        alt={sec.title}
+                        style={{
+                          width: "100%",
+                          maxWidth: "500px",
+                          borderRadius: "12px",
+                          objectFit: "cover",
+                          boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+                        }}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = "/placeholder-about.jpg";
+                        }}
+                      />
+                    )}
                   </div>
                 )}
 
-                {/* TEXT */}
+                {/* TEXT BLOCK */}
                 <div
                   style={{
                     flex: "1 1 400px",

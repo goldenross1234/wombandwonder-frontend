@@ -1,10 +1,42 @@
 import React, { useEffect, useState } from "react";
-import axios from "../../api/axiosConfig";   // ✔ global axios using runtime config
-import { loadConfig } from "../../config/runtimeConfig"; // ✔ for image base URL
+import axios from "../../api/axiosConfig";
+import { loadConfig } from "../../config/runtimeConfig";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import "./AboutManager.css";
+
+// 🔥 DND KIT IMPORTS
+import {
+  DndContext,
+  closestCenter
+} from "@dnd-kit/core";
+
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+
+import { CSS } from "@dnd-kit/utilities";
+
+// 🔥 Component that makes each section draggable
+function SortableSection({ id, children }) {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    cursor: "grab"
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
 
 export default function AboutManager() {
   const [about, setAbout] = useState(null);
@@ -20,7 +52,6 @@ export default function AboutManager() {
   useEffect(() => {
     async function fetchData() {
       try {
-        // Load backend URL from config.json
         const config = await loadConfig();
         setBackendBase(config.backend_url.replace("/api", ""));
 
@@ -70,16 +101,22 @@ export default function AboutManager() {
   const addSection = () => {
     setSections([
       ...sections,
-      { title: "", content: "", image: null, active: true, isNew: true },
+      { title: "", content: "", image: null, active: true, isNew: true, order: sections.length },
     ]);
   };
 
+  // ============================================================
+  // UPDATE SECTION TEXT (title & content)
+  // ============================================================
   const handleSectionChange = (index, field, value) => {
     const updated = [...sections];
     updated[index][field] = value;
     setSections(updated);
   };
 
+  // ============================================================
+  // UPDATE SECTION IMAGE/VIDEO
+  // ============================================================
   const handleSectionImage = (index, file) => {
     const updated = [...sections];
     updated[index].imageFile = file;
@@ -87,25 +124,25 @@ export default function AboutManager() {
     setSections(updated);
   };
 
-  // ============================================================
-  // DELETE SECTION
-  // ============================================================
-  const removeSection = async (index) => {
-    const section = sections[index];
-    if (!window.confirm("Delete this section?")) return;
 
-    // Remove from UI immediately
-    setSections((prev) => prev.filter((_, i) => i !== index));
+  // ============================================================
+  // DRAG & DROP — REORDER SECTIONS
+  // ============================================================
+  const onDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
 
-    if (section.id) {
-      try {
-        await axios.delete(`sections/${section.id}/`);
-        setMessage("🗑️ Section deleted successfully.");
-      } catch (err) {
-        console.error("Error deleting section:", err);
-        setMessage("❌ Failed to delete section.");
-      }
-    }
+    const oldIndex = sections.findIndex((s) => s.id === active.id);
+    const newIndex = sections.findIndex((s) => s.id === over.id);
+
+    const updated = [...sections];
+    const [moved] = updated.splice(oldIndex, 1);
+    updated.splice(newIndex, 0, moved);
+
+    // update order indexes
+    const reordered = updated.map((sec, i) => ({ ...sec, order: i }));
+
+    setSections(reordered);
   };
 
   // ============================================================
@@ -119,6 +156,7 @@ export default function AboutManager() {
         formData.append("content", sec.content);
         formData.append("active", sec.active);
         formData.append("about_page", about.id);
+        formData.append("order", sec.order);
 
         if (sec.imageFile) {
           formData.append("image", sec.imageFile);
@@ -143,6 +181,24 @@ export default function AboutManager() {
   };
 
   // ============================================================
+  // DELETE SECTION
+  // ============================================================
+  const removeSection = async (index) => {
+    const section = sections[index];
+    if (!window.confirm("Delete this section?")) return;
+
+    setSections((prev) => prev.filter((_, i) => i !== index));
+
+    if (section.id) {
+      try {
+        await axios.delete(`sections/${section.id}/`);
+      } catch (err) {
+        console.error("Error deleting section:", err);
+      }
+    }
+  };
+
+  // ============================================================
   // RENDER
   // ============================================================
   if (loading) return <p>Loading...</p>;
@@ -155,7 +211,7 @@ export default function AboutManager() {
 
       {about ? (
         <>
-          {/* MAIN FORM */}
+          {/* ================= MAIN FORM ================= */}
           <form onSubmit={handleSubmit} className="about-form">
             <label>Title</label>
             <input
@@ -164,7 +220,7 @@ export default function AboutManager() {
               onChange={(e) => setAbout({ ...about, title: e.target.value })}
             />
 
-            {/* EDITOR */}
+            {/* TEXT EDITOR */}
             <div className="editor-container">
               <div className="editor-pane">
                 <label>Content</label>
@@ -187,7 +243,7 @@ export default function AboutManager() {
               </div>
             </div>
 
-            {/* IMAGE */}
+            {/* MAIN IMAGE */}
             <label>Image</label>
             {about.image && (
               <img
@@ -208,90 +264,96 @@ export default function AboutManager() {
             </button>
           </form>
 
-          {/* SECTIONS */}
+          {/* ================= SECTIONS ================= */}
           <h2 className="section-title">🌸 About Sections</h2>
 
-          <AnimatePresence>
-            {sections.map((sec, index) => (
-              <motion.div
-                key={sec.id || index}
-                className="about-section-card"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-              >
-                <div className="section-header">
-                  <h3>Section {index + 1}</h3>
-                  <button
-                    type="button"
-                    onClick={() => removeSection(index)}
-                    className="remove-section-btn"
+          {/* 🔥 Drag + Drop Context */}
+          <DndContext onDragEnd={onDragEnd} collisionDetection={closestCenter}>
+            <SortableContext
+              items={sections.map((s) => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {sections.map((sec, index) => (
+                <SortableSection key={sec.id} id={sec.id}>
+                  <motion.div
+                    className="about-section-card"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
                   >
-                    ✖ Remove
-                  </button>
-                </div>
+                    <div className="section-header">
+                      <h3>Section {index + 1}</h3>
+                      <button
+                        type="button"
+                        onClick={() => removeSection(index)}
+                        className="remove-section-btn"
+                      >
+                        ✖ Remove
+                      </button>
+                    </div>
 
-                <input
-                  type="text"
-                  value={sec.title || ""}
-                  onChange={(e) =>
-                    handleSectionChange(index, "title", e.target.value)
-                  }
-                />
-
-                <div className="section-markdown">
-                  <textarea
-                    rows="6"
-                    value={sec.content || ""}
-                    onChange={(e) =>
-                      handleSectionChange(index, "content", e.target.value)
-                    }
-                  />
-                  <div className="section-preview">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {sec.content || "*Preview...*"}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-
-                {/* SECTION IMAGE */}
-                <label>Section Image</label>
-                {(() => {
-                  const isVideo = sec.image && sec.image.match(/\.(mp4|mov|webm)$/i);
-
-                  const imageUrl = sec.imagePreview
-                    ? sec.imagePreview
-                    : sec.image?.startsWith("http")
-                    ? sec.image
-                    : sec.image
-                    ? `${backendBase}/${sec.image.replace(/^\//, "")}`
-                    : null;
-
-                  return isVideo ? (
-                    <video controls className="section-image-preview">
-                      <source src={imageUrl} type="video/mp4" />
-                    </video>
-                  ) : imageUrl ? (
-                    <img
-                      src={imageUrl}
-                      alt={sec.title}
-                      className="section-image-preview"
+                    <input
+                      type="text"
+                      value={sec.title || ""}
+                      onChange={(e) =>
+                        handleSectionChange(index, "title", e.target.value)
+                      }
                     />
-                  ) : (
-                    <div className="image-placeholder">No Media Selected</div>
-                  );
-                })()}
 
+                    <div className="section-markdown">
+                      <textarea
+                        rows="6"
+                        value={sec.content || ""}
+                        onChange={(e) =>
+                          handleSectionChange(index, "content", e.target.value)
+                        }
+                      />
+                      <div className="section-preview">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {sec.content || "*Preview...*"}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
 
-                <input
-                  type="file"
-                  onChange={(e) =>
-                    handleSectionImage(index, e.target.files[0])
-                  }
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
+                    {/* MEDIA DISPLAY */}
+                    <label>Section Media</label>
+                    {(() => {
+                      const isVideo = sec.image && sec.image.match(/\.(mp4|mov|webm)$/i);
+
+                      const imageUrl = sec.imagePreview
+                        ? sec.imagePreview
+                        : sec.image?.startsWith("http")
+                        ? sec.image
+                        : sec.image
+                        ? `${backendBase}/${sec.image.replace(/^\//, "")}`
+                        : null;
+
+                      return isVideo ? (
+                        <video controls className="section-image-preview">
+                          <source src={imageUrl} type="video/mp4" />
+                        </video>
+                      ) : imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt={sec.title}
+                          className="section-image-preview"
+                        />
+                      ) : (
+                        <div className="image-placeholder">No Media Selected</div>
+                      );
+                    })()}
+
+                    <input
+                      type="file"
+                      onChange={(e) =>
+                        handleSectionImage(index, e.target.files[0])
+                      }
+                    />
+                  </motion.div>
+                </SortableSection>
+              ))}
+            </SortableContext>
+          </DndContext>
 
           <div className="section-actions">
             <button onClick={addSection} className="add-section-btn">
